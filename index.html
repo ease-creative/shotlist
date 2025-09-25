@@ -943,6 +943,8 @@ const SOUND_OPTIONS = [
     'Yes','No','Music','SFX (Sound Effects)','VO (Voice Over)'
 ];
 
+let isRestoringState = false;
+
 function buildSelectOptions(options, selected, placeholder = '') {
     const value = selected || '';
     const unique = new Set(options);
@@ -957,6 +959,42 @@ function buildSelectOptions(options, selected, placeholder = '') {
         entries.push({value, label:value});
     }
     return entries.map(opt => `<option value="${opt.value}" ${opt.value===value ? 'selected' : ''}>${opt.label}</option>`).join('');
+}
+
+function getVersions() {
+    const stored = JSON.parse(localStorage.getItem(VERSION_STORAGE_KEY) || '[]');
+    if (!Array.isArray(stored)) return [];
+    let mutated = false;
+    const versions = stored.map(v => {
+        if (!v.id) {
+            mutated = true;
+            return {
+                ...v,
+                id: (Date.now() + Math.random()).toString(36)
+            };
+        }
+        return v;
+    });
+    if (mutated) {
+        setVersions(versions);
+    }
+    return versions;
+}
+
+function setVersions(versions) {
+    localStorage.setItem(VERSION_STORAGE_KEY, JSON.stringify(versions));
+}
+
+function getActiveVersion() {
+    return localStorage.getItem(ACTIVE_VERSION_KEY) || '';
+}
+
+function setActiveVersion(id) {
+    if (!id) {
+        localStorage.removeItem(ACTIVE_VERSION_KEY);
+    } else {
+        localStorage.setItem(ACTIVE_VERSION_KEY, String(id));
+    }
 }
 
 function addShot(data = {}) {
@@ -1241,36 +1279,47 @@ function saveState() {
         wrap: document.getElementById('wrapTime').value
     };
     localStorage.setItem(CURRENT_STATE_KEY, JSON.stringify({data,meta}));
+    if (!isRestoringState && getActiveVersion()) {
+        setActiveVersion('');
+        updateVersionSelect();
+    }
 }
 
 function loadState() {
     const state = localStorage.getItem(CURRENT_STATE_KEY);
     if (!state) return;
     const {data,meta} = JSON.parse(state);
-    document.getElementById('shotlistBody').innerHTML = '';
-    data.forEach(row => {
-        if (row.type==='pause') {
-            addPause();
-            document.getElementById('shotlistBody').lastChild.querySelector('input[type="number"]').value = row.duration || 30;
-        } else if (row.type==='wrap') {
-            addWrap();
-        } else if (row.type==='shot') {
-            addShot({
-                scene: row.scene,
-                shot: row.shot,
-                type: row.type_,
-                movement: row.movement,
-                gear: row.gear,
-                location: row.location,
-                extint: row.extint,
-                sound: row.sound,
-                description: row.description,
-                cast: row.cast,
-                setup: row.setup,
-                shoot: row.shoot
-            });
-        }
-    });
+    const body = document.getElementById('shotlistBody');
+    if (!body) return;
+    isRestoringState = true;
+    try {
+        body.innerHTML = '';
+        data.forEach(row => {
+            if (row.type==='pause') {
+                addPause();
+                body.lastChild.querySelector('input[type="number"]').value = row.duration || 30;
+            } else if (row.type==='wrap') {
+                addWrap();
+            } else if (row.type==='shot') {
+                addShot({
+                    scene: row.scene,
+                    shot: row.shot,
+                    type: row.type_,
+                    movement: row.movement,
+                    gear: row.gear,
+                    location: row.location,
+                    extint: row.extint,
+                    sound: row.sound,
+                    description: row.description,
+                    cast: row.cast,
+                    setup: row.setup,
+                    shoot: row.shoot
+                });
+            }
+        });
+    } finally {
+        isRestoringState = false;
+    }
     for (const k in meta) {
         if (document.getElementById(k)) document.getElementById(k).value = meta[k];
     }
@@ -1278,48 +1327,113 @@ function loadState() {
 }
 
 function openSaveVersionModal() {
-    const version = prompt("Versionsname eingeben:");
-    if (!version) return;
-    const versions = JSON.parse(localStorage.getItem('shotlist-versions')||'[]');
-    const state = localStorage.getItem('shotlist-current');
-    if (!state) return;
-    versions.push({name:version,date:new Date().toISOString(),state});
-    localStorage.setItem('shotlist-versions', JSON.stringify(versions));
+    const modal = document.getElementById('versionModal');
+    if (!modal) return;
+    const input = document.getElementById('versionNameInput');
+    if (input) {
+        const timestamp = new Date();
+        const defaultName = `Version ${timestamp.toLocaleString('de-DE')}`;
+        input.value = defaultName;
+        try { input.setSelectionRange(0, defaultName.length); } catch (err) {}
+        setTimeout(() => input.focus(), 50);
+    }
+    modal.classList.add('active');
+}
+
+function closeVersionModal() {
+    const modal = document.getElementById('versionModal');
+    if (!modal) return;
+    modal.classList.remove('active');
+    const form = document.getElementById('versionForm');
+    if (form) form.reset();
+}
+
+function handleVersionFormSubmit(evt) {
+    evt.preventDefault();
+    const input = document.getElementById('versionNameInput');
+    if (!input) return;
+    const name = input.value.trim();
+    if (!name) {
+        showNotification('Bitte einen Versionsnamen eingeben.', true);
+        input.focus();
+        return;
+    }
+    saveState();
+    const state = localStorage.getItem(CURRENT_STATE_KEY);
+    if (!state) {
+        showNotification('Keine Shotlist-Daten vorhanden.', true);
+        return;
+    }
+    const versions = getVersions();
+    if (versions.some(v => v.name.toLowerCase() === name.toLowerCase())) {
+        showNotification('Es existiert bereits eine Version mit diesem Namen.', true);
+        input.focus();
+        input.select();
+        return;
+    }
+    const id = Date.now().toString();
+    versions.push({id, name, date: new Date().toISOString(), state});
+    setVersions(versions);
+    setActiveVersion(id);
     updateVersionSelect();
-    showNotification("Version gespeichert!");
+    showNotification('Version gespeichert!');
+    closeVersionModal();
 }
 
 function updateVersionSelect() {
     const select = document.getElementById('versionSelect');
+    if (!select) return;
+    const active = getActiveVersion();
     select.innerHTML = '<option value="">Versionen...</option>';
-    const versions = JSON.parse(localStorage.getItem('shotlist-versions')||'[]');
-    versions.forEach((v,i) => {
+    const versions = getVersions();
+    versions.forEach(v => {
         const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = v.name + " ("+v.date.substr(0,10)+")";
+        opt.value = v.id;
+        opt.textContent = `${v.name} (${v.date.substr(0,10)})`;
         select.appendChild(opt);
     });
+    if (active && versions.some(v => String(v.id) === String(active))) {
+        select.value = active;
+    }
 }
 
 function loadSelectedVersion() {
-    const idx = document.getElementById('versionSelect').value;
-    if (!idx) return;
-    const versions = JSON.parse(localStorage.getItem('shotlist-versions')||'[]');
-    const v = versions[idx];
-    if (!v) return;
-    localStorage.setItem('shotlist-current', v.state);
+    const select = document.getElementById('versionSelect');
+    if (!select) return;
+    const id = select.value;
+    if (!id) return;
+    const versions = getVersions();
+    const version = versions.find(v => String(v.id) === String(id));
+    if (!version) {
+        showNotification('Version konnte nicht gefunden werden.', true);
+        updateVersionSelect();
+        return;
+    }
+    localStorage.setItem(CURRENT_STATE_KEY, version.state);
+    setActiveVersion(id);
     loadState();
-    showNotification("Version geladen!");
+    updateVersionSelect();
+    showNotification('Version geladen!');
 }
 
 function deleteSelectedVersion() {
-    const idx = document.getElementById('versionSelect').value;
-    if (!idx) return;
-    const versions = JSON.parse(localStorage.getItem('shotlist-versions')||'[]');
-    versions.splice(idx,1);
-    localStorage.setItem('shotlist-versions', JSON.stringify(versions));
+    const select = document.getElementById('versionSelect');
+    if (!select) return;
+    const id = select.value;
+    if (!id) return;
+    const versions = getVersions();
+    const idx = versions.findIndex(v => String(v.id) === String(id));
+    if (idx === -1) {
+        showNotification('Version konnte nicht gelöscht werden.', true);
+        return;
+    }
+    versions.splice(idx, 1);
+    setVersions(versions);
+    if (getActiveVersion() === id) {
+        setActiveVersion('');
+    }
     updateVersionSelect();
-    showNotification("Version gelöscht!");
+    showNotification('Version gelöscht!');
 }
 
 function showNotification(msg, error=false) {
@@ -1350,6 +1464,20 @@ window.onload = function() {
     ].forEach(id=>{
         const el = document.getElementById(id);
         if (el) el.addEventListener('change', saveState);
+    });
+    const versionForm = document.getElementById('versionForm');
+    if (versionForm) versionForm.addEventListener('submit', handleVersionFormSubmit);
+    const versionCancelBtn = document.getElementById('versionCancelBtn');
+    if (versionCancelBtn) versionCancelBtn.addEventListener('click', closeVersionModal);
+    const versionModal = document.getElementById('versionModal');
+    if (versionModal) versionModal.addEventListener('click', (evt) => {
+        if (evt.target === versionModal) closeVersionModal();
+    });
+    document.addEventListener('keydown', (evt) => {
+        const modal = document.getElementById('versionModal');
+        if (evt.key === 'Escape' && modal && modal.classList.contains('active')) {
+            closeVersionModal();
+        }
     });
 };
     </script>

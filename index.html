@@ -790,6 +790,23 @@
             display: block;
         }
 
+        .start-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: flex-start;
+        }
+
+        .start-info-label {
+            font-weight: 600;
+            color: #155724;
+            white-space: nowrap;
+        }
+
+        .start-duration-input {
+            width: 80px;
+        }
+
         .umbau-row {
             background: linear-gradient(135deg, #ffe8cc 0%, #ffd8a8 100%) !important;
             border-left: 5px solid #fd7e14 !important;
@@ -1373,10 +1390,11 @@ function addWrap() {
     }
 }
 
-function addStart() {
+function addStart(data = {}) {
     const tbody = document.getElementById('shotlistBody');
     const row = document.createElement('tr');
     row.className = 'start-row';
+    const duration = Number.isFinite(parseInt(data.duration, 10)) ? parseInt(data.duration, 10) : 0;
     row.innerHTML = `
         <td></td>
         <td></td>
@@ -1387,11 +1405,16 @@ function addStart() {
         <td></td>
         <td></td>
         <td class="description-cell"><span class="start-label">START</span></td>
+        <td>
+            <div class="start-info">
+                <span class="start-info-label">Briefing/Aufbau</span>
+                <input type="number" min="0" class="time-input start-duration-input" value="${duration}" onchange="calculateTime();saveState();">
+            </div>
+        </td>
         <td></td>
         <td></td>
         <td></td>
-        <td></td>
-        <td class="time-display">--</td>
+        <td class="time-display">${duration ? duration + 'm' : '0m'}</td>
         <td class="start-time-cell">--:--</td>
         <td class="action-cell">
             <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
@@ -1399,6 +1422,8 @@ function addStart() {
     `;
     enableRowDrag(row);
     tbody.appendChild(row);
+    const durationInput = row.querySelector('.start-duration-input');
+    if (durationInput) durationInput.value = duration;
     if (!isRestoringState) {
         calculateTime();
         saveState();
@@ -1463,7 +1488,13 @@ function calculateTime() {
             const display = row.querySelector('.time-display');
             if (display) display.textContent = v + 'm';
             rowDuration = v;
-        } else if (row.classList.contains('wrap-row') || row.classList.contains('start-row')) {
+        } else if (row.classList.contains('start-row')) {
+            const input = row.querySelector('.start-duration-input');
+            const v = parseInt(input ? input.value : 0, 10) || 0;
+            const display = row.querySelector('.time-display');
+            if (display) display.textContent = v + 'm';
+            rowDuration = v;
+        } else if (row.classList.contains('wrap-row')) {
             rowDuration = 0;
             const display = row.querySelector('.time-display');
             if (display) display.textContent = '--';
@@ -1623,7 +1654,11 @@ function saveState() {
             return {type:'wrap'};
         }
         if (row.classList.contains('start-row')) {
-            return {type:'start'};
+            const dur = row.querySelector('.start-duration-input');
+            return {
+                type:'start',
+                duration: parseInt(dur ? dur.value : 0, 10) || 0
+            };
         }
         const sceneInput = row.querySelector('.scene-number input');
         const shotInput = row.querySelector('.shot-letter input');
@@ -1687,7 +1722,7 @@ function loadState() {
             } else if (row.type==='wrap') {
                 addWrap();
             } else if (row.type==='start') {
-                addStart();
+                addStart(row);
             } else if (row.type==='umbau') {
                 addUmbau(row);
             } else if (row.type==='shot') {

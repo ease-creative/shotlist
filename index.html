@@ -1205,7 +1205,9 @@ function captureSnapshot() {
         meta[id] = el ? el.value : '';
     });
     const columns = getColumnStates();
-    return {data, meta, columns};
+    const versions = JSON.parse(localStorage.getItem(VERSION_STORAGE_KEY) || '[]');
+    const activeVersion = getActiveVersion();
+    return {data, meta, columns, versions, activeVersion};
 }
 
 function loadSnapshot(snapshot) {
@@ -1273,6 +1275,14 @@ function loadSnapshot(snapshot) {
     } else {
         document.querySelectorAll('.column-checkbox input').forEach((cb, idx) => toggleColumn(idx));
     }
+    if (Array.isArray(snapshot.versions)) {
+        localStorage.setItem(VERSION_STORAGE_KEY, JSON.stringify(snapshot.versions));
+        setActiveVersion(snapshot.activeVersion || '');
+    } else {
+        localStorage.setItem(VERSION_STORAGE_KEY, '[]');
+        setActiveVersion('');
+    }
+    updateVersionSelect();
     calculateTime();
     return true;
 }

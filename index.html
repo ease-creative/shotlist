@@ -379,7 +379,24 @@
         .btn-wrap:hover {
             background: #5a32a3;
         }
-        
+
+        .btn-start {
+            background: #17a2b8;
+        }
+
+        .btn-start:hover {
+            background: #138496;
+        }
+
+        .btn-umbau {
+            background: #fd7e14;
+            color: #212529;
+        }
+
+        .btn-umbau:hover {
+            background: #e66907;
+        }
+
         .btn-danger {
             background: #dc3545;
         }
@@ -387,7 +404,21 @@
         .btn-danger:hover {
             background: #c82333;
         }
-        
+
+        .btn-undo {
+            background: #343a40;
+        }
+
+        .btn-undo:hover {
+            background: #23272b;
+        }
+
+        .reset-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
         .btn-success {
             background: #28a745;
         }
@@ -733,7 +764,55 @@
         .wrap-row:hover td {
             background: transparent !important;
         }
-        
+
+        .start-row {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%) !important;
+            border-left: 5px solid #28a745 !important;
+        }
+
+        .start-row td {
+            background: transparent !important;
+            font-weight: 600;
+            color: #155724;
+        }
+
+        .start-label {
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            display: block;
+        }
+
+        .umbau-row {
+            background: linear-gradient(135deg, #ffe8cc 0%, #ffd8a8 100%) !important;
+            border-left: 5px solid #fd7e14 !important;
+        }
+
+        .umbau-row td {
+            background: transparent !important;
+        }
+
+        .umbau-label {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .umbau-department-input {
+            width: 100%;
+            padding: 6px 10px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .umbau-duration-input {
+            width: 80px;
+        }
+
+        .draggable-row.dragging {
+            opacity: 0.5;
+        }
+
         .pause-label, .wrap-label {
             font-size: 16px;
             font-weight: bold;
@@ -884,11 +963,15 @@
                 <button class="btn btn-version-danger" onclick="deleteSelectedVersion()" title="Ausgewählte Version löschen">🗑️</button>
             </div>
             <div class="action-controls">
-                <button class="btn" onclick="addShot()">+ Shot hinzufügen</button>
-                <button class="btn btn-pause" onclick="addPause()">⏸️ Pause hinzufügen</button>
-                <button class="btn btn-wrap" onclick="addWrap()">🎬 WRAP hinzufügen</button>
-                <button class="btn btn-success" onclick="loadSampleData()">Beispieldaten laden</button>
-                <button class="btn btn-danger" onclick="clearAll()">Alle löschen</button>
+                <button class="btn" onclick="addShot()">+ Shot</button>
+                <button class="btn btn-pause" onclick="addPause()">⏸️ Pause</button>
+                <button class="btn btn-wrap" onclick="addWrap()">🎬 WRAP</button>
+                <button class="btn btn-start" onclick="addStart()">START</button>
+                <button class="btn btn-umbau" onclick="addUmbau()">UMBAU</button>
+                <div class="reset-group">
+                    <button class="btn btn-danger" onclick="clearAll()" id="resetButton">Reset</button>
+                    <button class="btn btn-undo" id="undoResetButton" style="display:none;" onclick="undoClear()">↶ Rückgängig</button>
+                </div>
             </div>
         </div>
         
@@ -974,6 +1057,8 @@ const SOUND_OPTIONS = [
 ];
 
 let isRestoringState = false;
+let lastResetState = null;
+let draggedRow = null;
 
 function buildSelectOptions(options, selected, placeholder = '', keepUnknown = true) {
     const value = selected || '';
@@ -1066,9 +1151,74 @@ function handleMovementChange(selectEl) {
     saveState();
 }
 
+function enableRowDrag(row) {
+    if (!row) return;
+    row.classList.add('draggable-row');
+    row.setAttribute('draggable', 'true');
+    row.addEventListener('dragstart', handleRowDragStart);
+    row.addEventListener('dragend', handleRowDragEnd);
+}
+
+function handleRowDragStart(event) {
+    draggedRow = event.currentTarget;
+    draggedRow.classList.add('dragging');
+    if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        // Firefox requires dataTransfer data to be set
+        event.dataTransfer.setData('text/plain', '');
+    }
+}
+
+function handleRowDragEnd() {
+    if (!draggedRow) return;
+    draggedRow.classList.remove('dragging');
+    draggedRow = null;
+    calculateTime();
+    saveState();
+}
+
+function handleTableDragOver(event) {
+    if (!draggedRow) return;
+    event.preventDefault();
+    const tbody = event.currentTarget;
+    const afterElement = getDragAfterElement(tbody, event.clientY);
+    if (afterElement == null) {
+        tbody.appendChild(draggedRow);
+    } else if (afterElement !== draggedRow) {
+        tbody.insertBefore(draggedRow, afterElement);
+    }
+}
+
+function getDragAfterElement(container, y) {
+    const rows = Array.from(container.querySelectorAll('tr.draggable-row:not(.dragging)'));
+    return rows.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+            return { offset, element: child };
+        }
+        return closest;
+    }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+}
+
+function updateUndoButtonVisibility(show) {
+    const undoBtn = document.getElementById('undoResetButton');
+    if (!undoBtn) return;
+    undoBtn.style.display = show ? 'inline-flex' : 'none';
+}
+
+function undoClear() {
+    if (!lastResetState) return;
+    localStorage.setItem(CURRENT_STATE_KEY, lastResetState);
+    loadState();
+    lastResetState = null;
+    updateUndoButtonVisibility(false);
+}
+
 function addShot(data = {}) {
     const tbody = document.getElementById('shotlistBody');
     const row = document.createElement('tr');
+    row.className = 'shot-row';
     const isDroneMovement = data.movement === 'Drone';
     const shotTypeValue = isDroneMovement && !DRONE_SHOT_TYPE_OPTIONS.includes(data.type) ? '' : (data.type || '');
     const shotTypeOptions = buildSelectOptions(
@@ -1122,9 +1272,12 @@ function addShot(data = {}) {
             <button class="duplicate-btn" onclick="duplicateRow(this)">⧉</button>
         </td>
     `;
+    enableRowDrag(row);
     tbody.appendChild(row);
-    calculateTime();
-    saveState();
+    if (!isRestoringState) {
+        calculateTime();
+        saveState();
+    }
 }
 
 function addPause() {
@@ -1141,9 +1294,12 @@ function addPause() {
             <button class="delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
         </td>
     `;
+    enableRowDrag(row);
     tbody.appendChild(row);
-    calculateTime();
-    saveState();
+    if (!isRestoringState) {
+        calculateTime();
+        saveState();
+    }
 }
 
 function addWrap() {
@@ -1156,27 +1312,86 @@ function addWrap() {
             <button class="delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
         </td>
     `;
+    enableRowDrag(row);
     tbody.appendChild(row);
-    calculateTime();
-    saveState();
+    if (!isRestoringState) {
+        calculateTime();
+        saveState();
+    }
+}
+
+function addStart() {
+    const tbody = document.getElementById('shotlistBody');
+    const row = document.createElement('tr');
+    row.className = 'start-row';
+    row.innerHTML = `
+        <td colspan="14"><span class="start-label">START</span></td>
+        <td>
+            <button class="delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
+        </td>
+    `;
+    enableRowDrag(row);
+    tbody.appendChild(row);
+    if (!isRestoringState) {
+        calculateTime();
+        saveState();
+    }
+}
+
+function addUmbau(data = {}) {
+    const tbody = document.getElementById('shotlistBody');
+    const row = document.createElement('tr');
+    row.className = 'umbau-row';
+    const duration = Number.isFinite(parseInt(data.duration, 10)) ? parseInt(data.duration, 10) : 0;
+    const department = data.department || '';
+    row.innerHTML = `
+        <td colspan="9"><span class="umbau-label">UMBAU</span></td>
+        <td colspan="2"><input type="text" placeholder="Departement" class="umbau-department-input" onchange="saveState()"></td>
+        <td><input type="number" min="0" class="time-input umbau-duration-input" onchange="calculateTime();saveState();"></td>
+        <td></td>
+        <td class="time-display">0m</td>
+        <td>
+            <button class="delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
+        </td>
+    `;
+    enableRowDrag(row);
+    tbody.appendChild(row);
+    const deptInput = row.querySelector('.umbau-department-input');
+    if (deptInput) deptInput.value = department;
+    const durationInput = row.querySelector('.umbau-duration-input');
+    if (durationInput) durationInput.value = duration;
+    if (!isRestoringState) {
+        calculateTime();
+        saveState();
+    }
 }
 
 function calculateTime() {
     const tbody = document.getElementById('shotlistBody');
+    if (!tbody) return;
     let total = 0;
     Array.from(tbody.rows).forEach(row => {
         if (row.classList.contains('pause-row')) {
             const pause = row.querySelector('input[type="number"]');
             const v = parseInt(pause ? pause.value : 0, 10) || 0;
-            row.querySelector('.time-display').textContent = v + 'm';
+            const display = row.querySelector('.time-display');
+            if (display) display.textContent = v + 'm';
             total += v;
-        } else if (row.classList.contains('wrap-row')) {
-            // nothing
+        } else if (row.classList.contains('umbau-row')) {
+            const input = row.querySelector('.umbau-duration-input');
+            const v = parseInt(input ? input.value : 0, 10) || 0;
+            const display = row.querySelector('.time-display');
+            if (display) display.textContent = v + 'm';
+            total += v;
+        } else if (row.classList.contains('wrap-row') || row.classList.contains('start-row')) {
+            // marker rows, no duration
         } else {
-            const setup = parseInt(row.cells[11].querySelector('input')?.value || 0, 10);
-            const shoot = parseInt(row.cells[12].querySelector('input')?.value || 0, 10);
+            const setupCell = row.cells[11]?.querySelector('input');
+            const shootCell = row.cells[12]?.querySelector('input');
+            const setup = parseInt(setupCell ? setupCell.value : 0, 10) || 0;
+            const shoot = parseInt(shootCell ? shootCell.value : 0, 10) || 0;
             const sum = setup + shoot;
-            row.cells[13].textContent = sum + 'm';
+            if (row.cells[13]) row.cells[13].textContent = sum + 'm';
             total += sum;
         }
     });
@@ -1266,86 +1481,70 @@ function handleImageUpload(input) {
     reader.readAsDataURL(file);
 }
 
-function loadSampleData() {
-    clearAll();
-    addShot({
-        scene:"1",
-        shot:"A",
-        type:"ES (Establishing Shot)",
-        movement:"Stationary",
-        gear:"Tripod",
-        location:"Street",
-        extint:"EXT DAY",
-        sound:"Yes",
-        description:"Establishing shot of the street.",
-        cast:"Anna",
-        setup:10,
-        shoot:8
-    });
-    addShot({
-        scene:"1",
-        shot:"B",
-        type:"CU (Close-Up)",
-        movement:"Handheld",
-        gear:"Gimbal",
-        location:"Street",
-        extint:"EXT DAY",
-        sound:"No",
-        description:"Closeup of Anna.",
-        cast:"Anna",
-        setup:8,
-        shoot:5
-    });
-    addPause();
-    addShot({
-        scene:"2",
-        shot:"A",
-        type:"MS (Medium Shot)",
-        movement:"Track",
-        gear:"Dolly",
-        location:"Cafe",
-        extint:"INT DAY",
-        sound:"Music",
-        description:"Tracking shot inside cafe.",
-        cast:"Anna, Ben",
-        setup:12,
-        shoot:10
-    });
-    addWrap();
-}
-
 function clearAll() {
-    document.getElementById('shotlistBody').innerHTML = '';
+    saveState();
+    const previousState = localStorage.getItem(CURRENT_STATE_KEY);
+    lastResetState = previousState;
+    const tbody = document.getElementById('shotlistBody');
+    if (tbody) tbody.innerHTML = '';
     calculateTime();
     saveState();
+    updateUndoButtonVisibility(!!lastResetState && lastResetState !== '');
 }
 
 // Versionierung (Speichern/Laden)
 function saveState() {
-    const rows = Array.from(document.getElementById('shotlistBody').rows);
+    if (isRestoringState) return;
+    const tbody = document.getElementById('shotlistBody');
+    if (!tbody) return;
+    const rows = Array.from(tbody.rows);
     const data = rows.map(row => {
         if (row.classList.contains('pause-row')) {
-            return {type:'pause',duration:parseInt(row.querySelector('input[type="number"]').value,10)||0};
-        } else if (row.classList.contains('wrap-row')) {
-            return {type:'wrap'};
-        } else {
-            const cells = row.querySelectorAll('input, select, textarea');
+            const input = row.querySelector('input[type="number"]');
+            return {type:'pause',duration:parseInt(input ? input.value : 0,10)||0};
+        }
+        if (row.classList.contains('umbau-row')) {
+            const dept = row.querySelector('.umbau-department-input');
+            const dur = row.querySelector('.umbau-duration-input');
             return {
-                type:'shot',
-                scene: cells[0]?.value,
-                shot: cells[1]?.value,
-                type_: cells[2]?.value,
-                movement: cells[3]?.value,
-                gear: cells[4]?.value,
-                location: cells[5]?.value,
-                extint: cells[6]?.value,
-                sound: cells[7]?.value,
-                description: cells[8]?.value,
-                cast: cells[9]?.value,
-                setup: parseInt(cells[11]?.value,10)||0,
-                shoot: parseInt(cells[12]?.value,10)||0
+                type:'umbau',
+                department: dept ? dept.value : '',
+                duration: parseInt(dur ? dur.value : 0, 10) || 0
             };
         }
+        if (row.classList.contains('wrap-row')) {
+            return {type:'wrap'};
+        }
+        if (row.classList.contains('start-row')) {
+            return {type:'start'};
+        }
+        const sceneInput = row.querySelector('.scene-number input');
+        const shotInput = row.querySelector('.shot-letter input');
+        const shotTypeSelect = row.querySelector('.shot-type-select');
+        const movementSelect = row.querySelector('.movement-select');
+        const gearInput = row.cells[4]?.querySelector('input');
+        const locationInput = row.cells[5]?.querySelector('input');
+        const extintSelect = row.cells[6]?.querySelector('select');
+        const soundSelect = row.cells[7]?.querySelector('select');
+        const descriptionTextarea = row.querySelector('.description-cell textarea');
+        const castInput = row.querySelector('.cast-cell input');
+        const setupInput = row.cells[11]?.querySelector('input');
+        const shootInput = row.cells[12]?.querySelector('input');
+        return {
+            type:'shot',
+            scene: sceneInput ? sceneInput.value : '',
+            shot: shotInput ? shotInput.value : '',
+            type_: shotTypeSelect ? shotTypeSelect.value : '',
+            movement: movementSelect ? movementSelect.value : '',
+            gear: gearInput ? gearInput.value : '',
+            location: locationInput ? locationInput.value : '',
+            extint: extintSelect ? extintSelect.value : '',
+            sound: soundSelect ? soundSelect.value : '',
+            description: descriptionTextarea ? descriptionTextarea.value : '',
+            cast: castInput ? castInput.value : '',
+            setup: parseInt(setupInput ? setupInput.value : 0, 10) || 0,
+            shoot: parseInt(shootInput ? shootInput.value : 0, 10) || 0
+        };
     });
     const meta = {
         client: document.getElementById('clientName').value,
@@ -1380,6 +1579,10 @@ function loadState() {
                 body.lastChild.querySelector('input[type="number"]').value = row.duration || 30;
             } else if (row.type==='wrap') {
                 addWrap();
+            } else if (row.type==='start') {
+                addStart();
+            } else if (row.type==='umbau') {
+                addUmbau(row);
             } else if (row.type==='shot') {
                 addShot({
                     scene: row.scene,
@@ -1535,6 +1738,10 @@ window.onload = function() {
     const hasStoredState = loadState();
     updateVersionSelect();
     const tbody = document.getElementById('shotlistBody');
+    if (tbody) {
+        tbody.addEventListener('dragover', handleTableDragOver);
+        tbody.addEventListener('drop', event => event.preventDefault());
+    }
     if (!hasStoredState && tbody && tbody.children.length === 0) {
         for (let i = 0; i < 3; i++) {
             addShot();

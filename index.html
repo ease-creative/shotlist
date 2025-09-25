@@ -2142,7 +2142,18 @@ function duplicateRow(btn) {
             data[k] = cells[i].value;
         }
     });
+    const previousRestoringState = isRestoringState;
+    isRestoringState = true;
     addShot(data);
+    isRestoringState = previousRestoringState;
+    const tbody = row.parentNode;
+    const newRow = tbody ? tbody.lastElementChild : null;
+    if (tbody && newRow && newRow !== row) {
+        tbody.insertBefore(newRow, row.nextSibling);
+        if (columnSettings) applyColumnSettings(columnSettings);
+        calculateTime();
+        saveState();
+    }
 }
 
 function handleImageUpload(input) {

@@ -562,6 +562,7 @@
             gap: 15px;
             justify-content: center;
             flex-wrap: wrap;
+            margin-top: 20px;
         }
         
         .col-start { text-align: center; }
@@ -1411,8 +1412,8 @@ function addStart(data = {}) {
         <td></td>
         <td>
             <div class="start-info">
-                <input type="number" min="0" class="time-input start-duration-input" value="${duration}" onchange="calculateTime();saveState();">
                 <span class="start-info-label">Briefing/Aufbau</span>
+                <input type="number" min="0" class="time-input start-duration-input" value="${duration}" onchange="calculateTime();saveState();">
             </div>
         </td>
         <td class="time-display">${duration ? duration + 'm' : '0m'}</td>

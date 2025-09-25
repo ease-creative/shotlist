@@ -197,7 +197,14 @@
             align-items: center;
             gap: 10px;
         }
-        
+
+        .project-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
         .action-controls {
             display: flex;
             gap: 12px;
@@ -219,7 +226,22 @@
             outline: none;
             border-color: #4a90e2;
         }
-        
+
+        .project-select {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            background: white;
+            font-size: 13px;
+            min-width: 220px;
+            cursor: pointer;
+        }
+
+        .project-select:focus {
+            outline: none;
+            border-color: #20c997;
+        }
+
         .btn-version {
             background: #17a2b8;
         }
@@ -235,6 +257,22 @@
         
         .btn-version-danger:hover {
             background: #c82333;
+        }
+
+        .btn-project {
+            background: #20c997;
+        }
+
+        .btn-project:hover {
+            background: #17a589;
+        }
+
+        .btn-project-secondary {
+            background: #6c757d;
+        }
+
+        .btn-project-secondary:hover {
+            background: #5a6268;
         }
         
         .version-notification {
@@ -837,7 +875,7 @@
             justify-content: flex-start;
         }
 
-        /* Dauer-Input halb so breit wie das Shoot-Time Feld */
+        /* START row duration input styling */
         .shotlist-table .start-row .start-duration-input {
             width: 140px;
             min-width: 140px;
@@ -847,6 +885,13 @@
             border-radius: 4px;
             background-color: #fff;
             box-sizing: border-box;
+        }
+
+        .shotlist-table .start-row .start-duration label {
+            font-weight: 600;
+            color: #155724;
+            white-space: nowrap;
+            margin: 0;
         }
 
         /* Chrome/Safari Spinner fix */
@@ -998,6 +1043,15 @@
                 </select>
                 <button class="btn btn-version-danger" onclick="deleteSelectedVersion()" title="Ausgewählte Version löschen">🗑️</button>
             </div>
+            <div class="project-controls">
+                <button class="btn btn-project" onclick="saveProject()">💼 Projekt speichern</button>
+                <select id="projectSelect" onchange="loadSelectedProject()" class="project-select">
+                    <option value="">Projekt laden...</option>
+                </select>
+                <button class="btn btn-project-secondary" onclick="exportProject()">⬇️ Export</button>
+                <button class="btn btn-project-secondary" onclick="document.getElementById('projectImportInput').click()">⬆️ Import</button>
+                <input type="file" id="projectImportInput" accept="application/json" style="display:none" onchange="importProjectFile(event)">
+            </div>
             <div class="action-controls">
                 <button class="btn" onclick="addShot()">+ Shot</button>
                 <button class="btn btn-pause" onclick="addPause()">⏸️ Pause</button>
@@ -1070,6 +1124,279 @@
 const VERSION_STORAGE_KEY = 'shotlist-versions';
 const CURRENT_STATE_KEY = 'shotlist-current';
 const ACTIVE_VERSION_KEY = 'shotlist-active-version';
+const PROJECT_STORAGE_KEY = 'shotlist-projects';
+const ACTIVE_PROJECT_KEY = 'shotlist-active-project';
+
+function getColumnStates() {
+    return Array.from(document.querySelectorAll('.column-checkbox input')).map(cb => cb.checked);
+}
+
+function applyColumnStates(states) {
+    const checkboxes = Array.from(document.querySelectorAll('.column-checkbox input'));
+    if (!checkboxes.length) return;
+    checkboxes.forEach((cb, idx) => {
+        if (Array.isArray(states) && typeof states[idx] === 'boolean') {
+            cb.checked = states[idx];
+        }
+    });
+    checkboxes.forEach((cb, idx) => toggleColumn(idx));
+}
+
+function captureSnapshot() {
+    const tbody = document.getElementById('shotlistBody');
+    const rows = Array.from(tbody ? tbody.rows : []);
+    const data = rows.map(row => {
+        if (row.classList.contains('pause-row')) {
+            const input = row.querySelector('input[type="number"]');
+            return {type:'pause',duration:parseInt(input ? input.value : 0,10)||0};
+        }
+        if (row.classList.contains('umbau-row')) {
+            const dept = row.querySelector('.umbau-department-input');
+            const dur = row.querySelector('.umbau-duration-input');
+            return {
+                type:'umbau',
+                department: dept ? dept.value : '',
+                duration: parseInt(dur ? dur.value : 0, 10) || 0
+            };
+        }
+        if (row.classList.contains('wrap-row')) {
+            return {type:'wrap'};
+        }
+        if (row.classList.contains('start-row')) {
+            const dur = row.querySelector('.start-duration-input');
+            return {
+                type:'start',
+                duration: parseInt(dur ? dur.value : 0, 10) || 0
+            };
+        }
+        const sceneInput = row.querySelector('.scene-number input');
+        const shotInput = row.querySelector('.shot-letter input');
+        const shotTypeSelect = row.querySelector('.shot-type-select');
+        const movementSelect = row.querySelector('.movement-select');
+        const gearInput = row.cells[4]?.querySelector('input');
+        const locationInput = row.cells[5]?.querySelector('input');
+        const extintSelect = row.cells[6]?.querySelector('select');
+        const soundSelect = row.cells[7]?.querySelector('select');
+        const descriptionTextarea = row.querySelector('.description-cell textarea');
+        const castInput = row.querySelector('.cast-cell input');
+        const setupInput = row.cells[11]?.querySelector('input');
+        const shootInput = row.cells[12]?.querySelector('input');
+        return {
+            type:'shot',
+            scene: sceneInput ? sceneInput.value : '',
+            shot: shotInput ? shotInput.value : '',
+            type_: shotTypeSelect ? shotTypeSelect.value : '',
+            movement: movementSelect ? movementSelect.value : '',
+            gear: gearInput ? gearInput.value : '',
+            location: locationInput ? locationInput.value : '',
+            extint: extintSelect ? extintSelect.value : '',
+            sound: soundSelect ? soundSelect.value : '',
+            description: descriptionTextarea ? descriptionTextarea.value : '',
+            cast: castInput ? castInput.value : '',
+            setup: parseInt(setupInput ? setupInput.value : 0, 10) || 0,
+            shoot: parseInt(shootInput ? shootInput.value : 0, 10) || 0
+        };
+    });
+    const meta = {};
+    [
+        'clientName','productionTitle','location','director','date','cinematographer','agency','startTime','wrapTime'
+    ].forEach(id => {
+        const el = document.getElementById(id);
+        meta[id] = el ? el.value : '';
+    });
+    const columns = getColumnStates();
+    return {data, meta, columns};
+}
+
+function loadSnapshot(snapshot) {
+    if (!snapshot) return false;
+    const body = document.getElementById('shotlistBody');
+    if (!body) return false;
+    const data = Array.isArray(snapshot.data) ? snapshot.data : [];
+    const meta = snapshot.meta || {};
+    const columns = snapshot.columns;
+    isRestoringState = true;
+    try {
+        body.innerHTML = '';
+        data.forEach(row => {
+            if (row.type === 'pause') {
+                addPause();
+                const last = body.lastElementChild;
+                const input = last ? last.querySelector('input[type="number"]') : null;
+                if (input) input.value = row.duration !== undefined ? row.duration : 30;
+            } else if (row.type === 'wrap') {
+                addWrap();
+            } else if (row.type === 'start') {
+                addStart({duration: row.duration || 0});
+            } else if (row.type === 'umbau') {
+                addUmbau(row);
+            } else if (row.type === 'shot') {
+                addShot({
+                    scene: row.scene,
+                    shot: row.shot,
+                    type: row.type_,
+                    movement: row.movement,
+                    gear: row.gear,
+                    location: row.location,
+                    extint: row.extint,
+                    sound: row.sound,
+                    description: row.description,
+                    cast: row.cast,
+                    setup: row.setup,
+                    shoot: row.shoot
+                });
+            }
+        });
+    } finally {
+        isRestoringState = false;
+    }
+    const legacyMetaMap = {
+        client: 'clientName',
+        production: 'productionTitle',
+        start: 'startTime',
+        wrap: 'wrapTime'
+    };
+    Object.keys(legacyMetaMap).forEach(oldKey => {
+        const newKey = legacyMetaMap[oldKey];
+        if (meta && meta[oldKey] !== undefined && meta[newKey] === undefined) {
+            meta[newKey] = meta[oldKey];
+        }
+    });
+    [
+        'clientName','productionTitle','location','director','date','cinematographer','agency','startTime','wrapTime'
+    ].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = meta[id] !== undefined ? meta[id] : '';
+    });
+    if (Array.isArray(columns)) {
+        applyColumnStates(columns);
+    } else {
+        document.querySelectorAll('.column-checkbox input').forEach((cb, idx) => toggleColumn(idx));
+    }
+    calculateTime();
+    return true;
+}
+
+function getProjects() {
+    const stored = JSON.parse(localStorage.getItem(PROJECT_STORAGE_KEY) || '[]');
+    return Array.isArray(stored) ? stored : [];
+}
+
+function setProjects(projects) {
+    localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(projects));
+}
+
+function getActiveProject() {
+    return localStorage.getItem(ACTIVE_PROJECT_KEY) || '';
+}
+
+function setActiveProject(name) {
+    if (name) {
+        localStorage.setItem(ACTIVE_PROJECT_KEY, name);
+    } else {
+        localStorage.removeItem(ACTIVE_PROJECT_KEY);
+    }
+}
+
+function updateProjectSelect() {
+    const select = document.getElementById('projectSelect');
+    if (!select) return;
+    const active = getActiveProject();
+    select.innerHTML = '<option value="">Projekt laden...</option>';
+    const projects = getProjects();
+    projects.forEach(project => {
+        const opt = document.createElement('option');
+        opt.value = project.name;
+        const dateLabel = project.updated ? ` (${project.updated.substr(0,10)})` : '';
+        opt.textContent = project.name + dateLabel;
+        select.appendChild(opt);
+    });
+    if (active) {
+        select.value = active;
+        if (select.value !== active) select.value = '';
+    }
+}
+
+function saveProject() {
+    const name = prompt('Projektname eingeben:');
+    if (!name) return;
+    const snapshot = captureSnapshot();
+    const projects = getProjects().filter(p => p.name.toLowerCase() !== name.toLowerCase());
+    projects.unshift({name, updated: new Date().toISOString(), state: snapshot});
+    setProjects(projects);
+    setActiveProject(name);
+    updateProjectSelect();
+    showNotification('Projekt gespeichert!');
+}
+
+function loadSelectedProject() {
+    const select = document.getElementById('projectSelect');
+    if (!select) return;
+    const name = select.value;
+    if (!name) return;
+    const project = getProjects().find(p => p.name === name);
+    if (!project) {
+        showNotification('Projekt nicht gefunden.', true);
+        updateProjectSelect();
+        return;
+    }
+    const ok = loadSnapshot(project.state);
+    if (ok) {
+        setActiveProject(name);
+        saveState();
+        showNotification('Projekt geladen!');
+    } else {
+        showNotification('Projekt konnte nicht geladen werden.', true);
+    }
+    updateProjectSelect();
+}
+
+function exportProject() {
+    const snapshot = captureSnapshot();
+    const meta = snapshot.meta || {};
+    const title = meta.productionTitle || meta.clientName || 'shotlist';
+    const slug = title.trim().replace(/[^a-z0-9_-]+/gi, '_') || 'shotlist';
+    const stamp = new Date().toISOString().replace(/[:]/g, '-').slice(0,19);
+    const fileName = `${slug}_${stamp}.json`;
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], {type: 'application/json'});
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(link.href), 0);
+    showNotification('Projekt exportiert!');
+}
+
+function importProjectFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const content = JSON.parse(e.target.result);
+            let snapshot = content;
+            if (content && content.snapshot) snapshot = content.snapshot;
+            if (content && content.state && !snapshot.data) snapshot = content.state;
+            const ok = loadSnapshot(snapshot);
+            if (ok) {
+                saveState();
+                setActiveProject('');
+                updateProjectSelect();
+                showNotification('Projekt importiert!');
+            } else {
+                showNotification('Projekt konnte nicht geladen werden.', true);
+            }
+        } catch (err) {
+            console.error(err);
+            showNotification('Ungültige Projektdatei.', true);
+        } finally {
+            event.target.value = '';
+        }
+    };
+    reader.readAsText(file);
+}
 
 const SHOT_TYPE_OPTIONS = [
     'POV','LS (Long Shot)','MLS (Medium Long Shot)','MS (Medium Shot)',
@@ -1422,7 +1749,7 @@ function addStart(data = {}) {
         <td>
             <div class="start-duration">
                 <label>Briefing/Aufbau</label>
-                <input type="number" min="0" class="time-input start-duration-input" value="${duration}" onchange="calculateTime();saveState();">
+                <input type="number" min="0" step="1" class="time-input start-duration-input" value="${duration}" onchange="calculateTime();saveState();">
             </div>
         </td>
         <td class="time-display">${duration ? duration + 'm' : '0m'}</td>
@@ -1644,69 +1971,8 @@ function clearAll() {
 // Versionierung (Speichern/Laden)
 function saveState() {
     if (isRestoringState) return;
-    const tbody = document.getElementById('shotlistBody');
-    if (!tbody) return;
-    const rows = Array.from(tbody.rows);
-    const data = rows.map(row => {
-        if (row.classList.contains('pause-row')) {
-            const input = row.querySelector('input[type="number"]');
-            return {type:'pause',duration:parseInt(input ? input.value : 0,10)||0};
-        }
-        if (row.classList.contains('umbau-row')) {
-            const dept = row.querySelector('.umbau-department-input');
-            const dur = row.querySelector('.umbau-duration-input');
-            return {
-                type:'umbau',
-                department: dept ? dept.value : '',
-                duration: parseInt(dur ? dur.value : 0, 10) || 0
-            };
-        }
-        if (row.classList.contains('wrap-row')) {
-            return {type:'wrap'};
-        }
-        if (row.classList.contains('start-row')) {
-            const dur = row.querySelector('.start-duration-input');
-            return {
-                type:'start',
-                duration: parseInt(dur ? dur.value : 0, 10) || 0
-            };
-        }
-        const sceneInput = row.querySelector('.scene-number input');
-        const shotInput = row.querySelector('.shot-letter input');
-        const shotTypeSelect = row.querySelector('.shot-type-select');
-        const movementSelect = row.querySelector('.movement-select');
-        const gearInput = row.cells[4]?.querySelector('input');
-        const locationInput = row.cells[5]?.querySelector('input');
-        const extintSelect = row.cells[6]?.querySelector('select');
-        const soundSelect = row.cells[7]?.querySelector('select');
-        const descriptionTextarea = row.querySelector('.description-cell textarea');
-        const castInput = row.querySelector('.cast-cell input');
-        const setupInput = row.cells[11]?.querySelector('input');
-        const shootInput = row.cells[12]?.querySelector('input');
-        return {
-            type:'shot',
-            scene: sceneInput ? sceneInput.value : '',
-            shot: shotInput ? shotInput.value : '',
-            type_: shotTypeSelect ? shotTypeSelect.value : '',
-            movement: movementSelect ? movementSelect.value : '',
-            gear: gearInput ? gearInput.value : '',
-            location: locationInput ? locationInput.value : '',
-            extint: extintSelect ? extintSelect.value : '',
-            sound: soundSelect ? soundSelect.value : '',
-            description: descriptionTextarea ? descriptionTextarea.value : '',
-            cast: castInput ? castInput.value : '',
-            setup: parseInt(setupInput ? setupInput.value : 0, 10) || 0,
-            shoot: parseInt(shootInput ? shootInput.value : 0, 10) || 0
-        };
-    });
-    const meta = {};
-    [
-        'clientName','productionTitle','location','director','date','cinematographer','agency','startTime','wrapTime'
-    ].forEach(id => {
-        const el = document.getElementById(id);
-        meta[id] = el ? el.value : '';
-    });
-    localStorage.setItem(CURRENT_STATE_KEY, JSON.stringify({data,meta}));
+    const snapshot = captureSnapshot();
+    localStorage.setItem(CURRENT_STATE_KEY, JSON.stringify(snapshot));
     if (!isRestoringState && getActiveVersion()) {
         setActiveVersion('');
         updateVersionSelect();
@@ -1716,62 +1982,13 @@ function saveState() {
 function loadState() {
     const state = localStorage.getItem(CURRENT_STATE_KEY);
     if (!state) return false;
-    const {data,meta} = JSON.parse(state);
-    const body = document.getElementById('shotlistBody');
-    if (!body) return false;
-    const legacyMetaMap = {
-        client: 'clientName',
-        production: 'productionTitle',
-        start: 'startTime',
-        wrap: 'wrapTime'
-    };
-    Object.keys(legacyMetaMap).forEach(oldKey => {
-        const newKey = legacyMetaMap[oldKey];
-        if (meta && meta[oldKey] !== undefined && meta[newKey] === undefined) {
-            meta[newKey] = meta[oldKey];
-        }
-    });
-    isRestoringState = true;
     try {
-        body.innerHTML = '';
-        data.forEach(row => {
-            if (row.type==='pause') {
-                addPause();
-                body.lastChild.querySelector('input[type="number"]').value = row.duration || 30;
-            } else if (row.type==='wrap') {
-                addWrap();
-            } else if (row.type==='start') {
-                addStart(row);
-            } else if (row.type==='umbau') {
-                addUmbau(row);
-            } else if (row.type==='shot') {
-                addShot({
-                    scene: row.scene,
-                    shot: row.shot,
-                    type: row.type_,
-                    movement: row.movement,
-                    gear: row.gear,
-                    location: row.location,
-                    extint: row.extint,
-                    sound: row.sound,
-                    description: row.description,
-                    cast: row.cast,
-                    setup: row.setup,
-                    shoot: row.shoot
-                });
-            }
-        });
-    } finally {
-        isRestoringState = false;
+        const snapshot = JSON.parse(state);
+        return loadSnapshot(snapshot);
+    } catch (err) {
+        console.error(err);
+        return false;
     }
-    [
-        'clientName','productionTitle','location','director','date','cinematographer','agency','startTime','wrapTime'
-    ].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = meta && meta[id] !== undefined ? meta[id] : '';
-    });
-    calculateTime();
-    return true;
 }
 
 function openSaveVersionModal() {
@@ -1901,6 +2118,7 @@ function showNotification(msg, error=false) {
 window.onload = function() {
     const hasStoredState = loadState();
     updateVersionSelect();
+    updateProjectSelect();
     const tbody = document.getElementById('shotlistBody');
     if (tbody) {
         tbody.addEventListener('dragover', handleTableDragOver);

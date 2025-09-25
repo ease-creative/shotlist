@@ -186,10 +186,144 @@
             background: #f8f9fa;
             border-bottom: 1px solid #dee2e6;
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .version-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .action-controls {
+            display: flex;
             gap: 12px;
             align-items: center;
             flex-wrap: wrap;
+        }
+        
+        .version-select {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            background: white;
+            font-size: 13px;
+            min-width: 200px;
+            cursor: pointer;
+        }
+        
+        .version-select:focus {
+            outline: none;
+            border-color: #4a90e2;
+        }
+        
+        .btn-version {
+            background: #17a2b8;
+        }
+        
+        .btn-version:hover {
+            background: #138496;
+        }
+        
+        .btn-version-danger {
+            background: #dc3545;
+            padding: 8px 10px;
+        }
+        
+        .btn-version-danger:hover {
+            background: #c82333;
+        }
+        
+        .version-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            opacity: 0;
+            transform: translateX(100px);
+            transition: all 0.3s ease;
+        }
+        
+        .version-notification.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        
+        .version-notification.error {
+            background: #dc3545;
+        }
+        
+        .version-modal {
+            display: none;
+            position: fixed;
+            z-index: 1001;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+        }
+        
+        .version-modal-content {
+            background: white;
+            margin: 10% auto;
+            padding: 30px;
+            border-radius: 12px;
+            width: 500px;
+            max-width: 90%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .version-modal h3 {
+            margin: 0 0 20px 0;
+            color: #333;
+            font-size: 1.4rem;
+        }
+        
+        .version-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .version-input:focus {
+            outline: none;
+            border-color: #4a90e2;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+        
+        .modal-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .modal-btn.primary {
+            background: #4a90e2;
+            color: white;
+        }
+        
+        .modal-btn.secondary {
+            background: #6c757d;
+            color: white;
         }
         
         .btn {
@@ -431,6 +565,58 @@
             background: #c82333;
         }
         
+        .duplicate-btn {
+            background: #17a2b8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .duplicate-btn:hover {
+            background: #138496;
+        }
+        
+        .column-toggle {
+            padding: 15px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .column-toggle h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+            font-size: 14px;
+        }
+        
+        .column-checkboxes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        
+        .column-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+        
+        .column-checkbox input[type="checkbox"] {
+            cursor: pointer;
+        }
+        
+        .column-checkbox label {
+            cursor: pointer;
+            user-select: none;
+        }
+        
         .image-modal {
             display: none;
             position: fixed;
@@ -581,12 +767,83 @@
             </div>
         </div>
         
+        <div class="column-toggle">
+            <h4>Spalten anzeigen/ausblenden:</h4>
+            <div class="column-checkboxes">
+                <div class="column-checkbox">
+                    <input type="checkbox" id="col-scene" checked onchange="toggleColumn(0)">
+                    <label for="col-scene">Scene #</label>
+                </div>
+                <div class="column-checkbox">
+                    <input type="checkbox" id="col-shot" checked onchange="toggleColumn(1)">
+                    <label for="col-shot">Shot</label>
+                </div>
+                <div class="column-checkbox">
+                    <input type="checkbox" id="col-type" checked onchange="toggleColumn(2)">
+                    <label for="col-type">Shot Type</label>
+                </div>
+                <div class="column-checkbox">
+                    <input type="checkbox" id="col-movement" checked onchange="toggleColumn(3)">
+                    <label for="col-movement">Movement</label>
+                </div>
+                <div class="column-checkbox">
+                    <input type="checkbox" id="col-gear" checked onchange="toggleColumn(4)">
+                    <label for="col-gear">Gear</label>
+                </div>
+                <div class="column-checkbox">
+                    <input type="checkbox" id="col-location" checked onchange="toggleColumn(5)">
+                    <label for="col-location">Location</label>
+                </div>
+                <div class="column-checkbox">
+                    <input type="checkbox" id="col-extint" checked onchange="toggleColumn(6)">
+                    <label for="col-extint">EXT/INT</label>
+                </div>
+                <div class="column-checkbox">
+                    <input type="checkbox" id="col-sound" checked onchange="toggleColumn(7)">
+                    <label for="col-sound">Sound</label>
+                </div>
+                <div class="column-checkbox">
+                    <input type="checkbox" id="col-description" checked onchange="toggleColumn(8)">
+                    <label for="col-description">Description</label>
+                </div>
+                <div class="column-checkbox">
+                    <input type="checkbox" id="col-cast" checked onchange="toggleColumn(9)">
+                    <label for="col-cast">Cast</label>
+                </div>
+                <div class="column-checkbox">
+                    <input type="checkbox" id="col-reference" checked onchange="toggleColumn(10)">
+                    <label for="col-reference">Reference</label>
+                </div>
+                <div class="column-checkbox">
+                    <input type="checkbox" id="col-setup" checked onchange="toggleColumn(11)">
+                    <label for="col-setup">Setup Time</label>
+                </div>
+                <div class="column-checkbox">
+                    <input type="checkbox" id="col-shoot" checked onchange="toggleColumn(12)">
+                    <label for="col-shoot">Shoot Time</label>
+                </div>
+                <div class="column-checkbox">
+                    <input type="checkbox" id="col-total" checked onchange="toggleColumn(13)">
+                    <label for="col-total">Total Time</label>
+                </div>
+            </div>
+        </div>
+        
         <div class="controls">
-            <button class="btn" onclick="addShot()">+ Shot hinzufügen</button>
-            <button class="btn btn-pause" onclick="addPause()">⏸️ Pause hinzufügen</button>
-            <button class="btn btn-wrap" onclick="addWrap()">🎬 WRAP hinzufügen</button>
-            <button class="btn btn-success" onclick="loadSampleData()">Beispieldaten laden</button>
-            <button class="btn btn-danger" onclick="clearAll()">Alle löschen</button>
+            <div class="version-controls">
+                <button class="btn btn-version" onclick="openSaveVersionModal()">💾 Version speichern</button>
+                <select id="versionSelect" onchange="loadSelectedVersion()" class="version-select">
+                    <option value="">Versionen...</option>
+                </select>
+                <button class="btn btn-version-danger" onclick="deleteSelectedVersion()" title="Ausgewählte Version löschen">🗑️</button>
+            </div>
+            <div class="action-controls">
+                <button class="btn" onclick="addShot()">+ Shot hinzufügen</button>
+                <button class="btn btn-pause" onclick="addPause()">⏸️ Pause hinzufügen</button>
+                <button class="btn btn-wrap" onclick="addWrap()">🎬 WRAP hinzufügen</button>
+                <button class="btn btn-success" onclick="loadSampleData()">Beispieldaten laden</button>
+                <button class="btn btn-danger" onclick="clearAll()">Alle löschen</button>
+            </div>
         </div>
         
         <div class="table-container">
@@ -766,6 +1023,344 @@
         }
         
         function deleteShot(button) {
+            const row = button.closest('tr');
+            row.remove();
+            shotCount--;
+            calculateTime();
+        }
+        
+        function clearAll() {
+            if (confirm('Alle Einträge löschen?')) {
+                document.getElementById('shotlistBody').innerHTML = '';
+                shotCount = 0;
+                calculateTime();
+            }
+        }
+
+        function calculateTime() {
+            let totalMinutes = 0;
+            
+            const rows = document.querySelectorAll('#shotlistBody tr');
+            rows.forEach(row => {
+                let setupTime = 0;
+                let shootTime = 0;
+                
+                if (row.classList.contains('pause-row') || row.classList.contains('wrap-row')) {
+                    // Für Pause/WRAP nur die eingegebene Zeit verwenden
+                    const timeInput = row.querySelector('.time-input input');
+                    shootTime = parseFloat(timeInput.value) || 0;
+                } else {
+                    // Für normale Shots Setup + Shoot Time
+                    const setupInput = row.querySelector('.time-input input[placeholder="5"]');
+                    const shootInput = row.querySelector('.time-input input[placeholder="10"]');
+                    setupTime = parseFloat(setupInput.value) || 0;
+                    shootTime = parseFloat(shootInput.value) || 0;
+                }
+                
+                const rowTotal = setupTime + shootTime;
+                const totalCell = row.querySelector('.time-display span');
+                
+                totalCell.textContent = rowTotal.toFixed(1);
+                totalMinutes += rowTotal;
+            });
+            
+            // Format total time as hours and minutes
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = Math.round(totalMinutes % 60);
+            document.getElementById('totalTimeDisplay').textContent = `${hours}h ${minutes}m`;
+            
+            // WRAP Time Berechnung mit Uhrzeiten
+            const startTime = document.getElementById('startTime').value;
+            const wrapTime = document.getElementById('wrapTime').value;
+            const wrapStatus = document.getElementById('wrapStatus');
+            
+            if (startTime && wrapTime) {
+                const startMinutes = timeToMinutes(startTime);
+                const wrapMinutes = timeToMinutes(wrapTime);
+                const availableMinutes = wrapMinutes - startMinutes;
+                
+                if (availableMinutes <= 0) {
+                    wrapStatus.textContent = 'Invalid Times';
+                    wrapStatus.className = 'wrap-status';
+                    return;
+                }
+                
+                const difference = totalMinutes - availableMinutes;
+                
+                if (Math.abs(difference) < 5) {
+                    wrapStatus.textContent = 'On Schedule';
+                    wrapStatus.className = 'wrap-status';
+                } else if (difference > 0) {
+                    const overHours = Math.floor(difference / 60);
+                    const overMinutes = Math.round(difference % 60);
+                    wrapStatus.textContent = `Over by ${overHours > 0 ? overHours + 'h ' : ''}${overMinutes}m`;
+                    wrapStatus.className = 'wrap-status over-time';
+                } else {
+                    const underHours = Math.floor(Math.abs(difference) / 60);
+                    const underMinutes = Math.round(Math.abs(difference) % 60);
+                    wrapStatus.textContent = `Under by ${underHours > 0 ? underHours + 'h ' : ''}${underMinutes}m`;
+                    wrapStatus.className = 'wrap-status under-time';
+                }
+            } else {
+                wrapStatus.textContent = 'Set Times';
+                wrapStatus.className = 'wrap-status';
+            }
+        }
+        
+        function timeToMinutes(timeString) {
+            const [hours, minutes] = timeString.split(':').map(Number);
+            return hours * 60 + minutes;
+        }
+
+        function toggleColumn(columnIndex) {
+            const table = document.querySelector('.shotlist-table');
+            const headerCells = table.querySelectorAll('th');
+            const rows = table.querySelectorAll('tbody tr');
+            
+            const isVisible = headerCells[columnIndex].style.display !== 'none';
+            const newDisplay = isVisible ? 'none' : '';
+            
+            // Toggle header
+            headerCells[columnIndex].style.display = newDisplay;
+            
+            // Toggle all rows
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells[columnIndex]) {
+                    cells[columnIndex].style.display = newDisplay;
+                }
+            });
+        }
+
+        function handleImageUpload(input) {
+            const file = input.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const uploadDiv = input.parentElement;
+                    const uploadBtn = uploadDiv.querySelector('.upload-btn');
+                    const previewDiv = uploadDiv.querySelector('.image-preview');
+                    const img = previewDiv.querySelector('img');
+                    
+                    img.src = e.target.result;
+                    uploadBtn.style.display = 'none';
+                    previewDiv.style.display = 'flex';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        function removeImage(button) {
+            const uploadDiv = button.closest('.reference-upload');
+            const uploadBtn = uploadDiv.querySelector('.upload-btn');
+            const previewDiv = uploadDiv.querySelector('.image-preview');
+            const fileInput = uploadDiv.querySelector('input[type=file]');
+            const img = previewDiv.querySelector('img');
+            
+            img.src = '';
+            fileInput.value = '';
+            uploadBtn.style.display = 'block';
+            previewDiv.style.display = 'none';
+        }
+        
+        function openImageModal(img) {
+            const modal = document.getElementById('imageModal');
+            const modalImg = document.getElementById('modalImage');
+            
+            if (!modal) {
+                // Create modal if it doesn't exist
+                const modalHtml = `
+                    <div id="imageModal" class="image-modal" onclick="closeImageModal()">
+                        <span class="image-modal-close">&times;</span>
+                        <img class="image-modal-content" id="modalImage">
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+            }
+            
+            document.getElementById('imageModal').style.display = 'block';
+            document.getElementById('modalImage').src = img.src;
+        }
+        
+        function closeImageModal() {
+            const modal = document.getElementById('imageModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        function loadSampleData() {
+            clearAll();
+            
+            const sampleShots = [
+                {
+                    scene: 'Intro', shot: 'A', type: 'POV', movement: 'Zoom', gear: '', location: 'Black Screen',
+                    extInt: '', sound: 'Yes', description: 'Happy memories mixed with unhappy memories fill a portrait frame as we zoom in slowly to a black screen',
+                    cast: 'Portrait Frame', setup: '2', shoot: '8', reference: null
+                },
+                {
+                    scene: '1', shot: 'A', type: 'LS', movement: 'Stationary', gear: '', location: 'Apartment',
+                    extInt: 'INT DAY', sound: 'Yes', description: 'Leanna and Thomas are playing catch. The phone rings. Leanna is duped into talking. A voice is heard from the speaker',
+                    cast: 'Leanna, Thomas', setup: '3', shoot: '12', reference: null
+                },
+                {
+                    scene: '1', shot: 'B', type: 'MLS', movement: 'Stationary', gear: '', location: 'Apartment',
+                    extInt: 'INT DAY', sound: 'Yes', description: 'Leanna explains the call to Thomas. Thomas misspeaks, sending Leanna off into a fit',
+                    cast: 'Leanna, Thomas', setup: '2', shoot: '8', reference: null
+                },
+                {
+                    scene: '1', shot: 'b', type: 'CU', movement: 'Stationary', gear: '', location: 'Apartment',
+                    extInt: 'INT DAY', sound: 'Yes', description: "Leanna's face as she overreacts",
+                    cast: 'Leanna', setup: '1', shoot: '5', reference: null
+                },
+                {
+                    scene: '1', shot: 'B', type: 'MLS', movement: 'Stationary', gear: '', location: 'Apartment',
+                    extInt: 'INT DAY', sound: 'Yes', description: 'Thomas says his piece',
+                    cast: 'Leanna, Thomas', setup: '1', shoot: '4', reference: null
+                },
+                {
+                    scene: '1', shot: 'D', type: 'MLS', movement: 'Pan', gear: '', location: 'Apartment',
+                    extInt: 'INT DAY', sound: 'Yes', description: 'Leanna scoops his keys. She tosses them at his chest, kicking him out',
+                    cast: 'Leanna, Thomas', setup: '3', shoot: '10', reference: null
+                },
+                {
+                    scene: '1', shot: 'E', type: 'MS', movement: 'Pedestal', gear: '', location: 'Apartment',
+                    extInt: 'INT DAY', sound: 'Yes', description: 'Leanna drops to the floor. She thinks as she sits on teh floor after having locked it',
+                    cast: 'Leanna', setup: '2', shoot: '8', reference: null
+                },
+                {
+                    scene: '2', shot: 'A', type: 'LS', movement: 'Stationary', gear: '', location: "Wayne's Apartment",
+                    extInt: 'INT DAY', sound: 'No', description: 'Tracy answers. Wayne demands the phone, swiping at it. Tracy evades',
+                    cast: 'Wayne, Tracy, Hailey', setup: '4', shoot: '15', reference: null
+                }
+            ];
+            
+            sampleShots.forEach((shot) => {
+                addShot();
+                const lastRow = document.querySelector('#shotlistBody tr:last-child');
+                const inputs = lastRow.querySelectorAll('input, select, textarea');
+                
+                inputs[0].value = shot.scene;
+                inputs[1].value = shot.shot;
+                inputs[2].value = shot.type;
+                inputs[3].value = shot.movement;
+                inputs[4].value = shot.gear;
+                inputs[5].value = shot.location;
+                inputs[6].value = shot.extInt;
+                inputs[7].value = shot.sound;
+                inputs[8].value = shot.description;
+                inputs[9].value = shot.cast;
+                inputs[10].value = shot.setup;
+                inputs[11].value = shot.shoot;
+            });
+            
+            // Füge Beispiel-Pause und WRAP hinzu
+            addPause();
+            const pauseRow = document.querySelector('#shotlistBody .pause-row:last-child');
+            pauseRow.querySelector('textarea').value = 'Mittagspause - Crew Catering';
+            pauseRow.querySelector('.time-input input').value = '60';
+            
+            addWrap();
+            const wrapRow = document.querySelector('#shotlistBody .wrap-row:last-child');
+            wrapRow.querySelector('textarea').value = 'Equipment einpacken, Location cleanup';
+            wrapRow.querySelector('.time-input input').value = '30';
+            
+            // Set example start/wrap times
+            document.getElementById('startTime').value = '08:00';
+            document.getElementById('wrapTime').value = '18:00';
+            
+            calculateTime();
+        }
+
+        function exportToExcel() {
+            const data = [];
+            
+            // Header mit Projektinfo
+            const clientName = document.getElementById('clientName').value;
+            const headerTitle = clientName ? `SHOT LIST - ${clientName}` : 'SHOT LIST';
+            
+            data.push([headerTitle, '', '', '', '', '', '', '', '', '', '', '', 'Total Time (minutes): ' + document.getElementById('totalTimeDisplay').textContent]);
+            data.push([]);
+            data.push([
+                'Production Title: ' + document.getElementById('productionTitle').value,
+                '', '', '', '', '', '', '', '',
+                'Location: ' + document.getElementById('location').value
+            ]);
+            data.push([
+                'Director: ' + document.getElementById('director').value,
+                '', '', '', '', '', '', '', '',
+                'Date: ' + document.getElementById('date').value
+            ]);
+            data.push([
+                'Cinematographer: ' + document.getElementById('cinematographer').value,
+                '', '', '', '', '', '', '', '',
+                'Agency: ' + document.getElementById('agency').value
+            ]);
+            data.push([]);
+            
+            // Tabellen-Header
+            data.push([
+                'Scene #', 'Shot', 'Shot Type', 'Movement', 'Gear', 'Location',
+                'EXT / INT', 'Sound', 'Shot Description', 'Cast', 'Reference Image',
+                'Setup Time', 'Shoot Time', 'Total Time'
+            ]);
+            
+            // Daten aus der Tabelle
+            const rows = document.querySelectorAll('#shotlistBody tr');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                const rowData = [];
+                
+                // Prüfe ob es Pause oder WRAP ist
+                if (row.classList.contains('pause-row')) {
+                    rowData.push('PAUSE', 'PAUSE', '-', '-', '-', '-', '-', '-', 
+                        cells[8].querySelector('textarea').value, '-', '-', 
+                        cells[11].querySelector('input').value, '-', cells[13].querySelector('span').textContent);
+                } else if (row.classList.contains('wrap-row')) {
+                    rowData.push('WRAP', 'WRAP', '-', '-', '-', '-', '-', '-', 
+                        cells[8].querySelector('textarea').value, '-', '-', 
+                        cells[11].querySelector('input').value, '-', cells[13].querySelector('span').textContent);
+                } else {
+                    cells.forEach((cell, index) => {
+                        if (index < cells.length - 1) { // Letzte Spalte (Aktions-Buttons) überspringen
+                            if (index === 13) { // Total Time Spalte
+                                rowData.push(cell.querySelector('span').textContent);
+                            } else if (index === 10) { // Reference Image Spalte
+                                const img = cell.querySelector('img');
+                                rowData.push(img && img.src && img.src !== '' ? 'Reference Image Available' : 'No Reference');
+                            } else {
+                                const input = cell.querySelector('input, select, textarea');
+                                rowData.push(input ? input.value : cell.textContent);
+                            }
+                        }
+                    });
+                }
+                
+                data.push(rowData);
+            });
+            
+            // Excel erstellen
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            
+            // Spaltenbreiten
+            ws['!cols'] = [
+                {wch: 10}, {wch: 6}, {wch: 10}, {wch: 12}, {wch: 15}, {wch: 15},
+                {wch: 10}, {wch: 8}, {wch: 35}, {wch: 20}, {wch: 15}, {wch: 10}, {wch: 10}, {wch: 10}
+            ];
+            
+            XLSX.utils.book_append_sheet(wb, ws, 'Shotlist');
+            const filename = clientName ? `${clientName}_Shotlist.xlsx` : `${document.getElementById('productionTitle').value}_Shotlist.xlsx`;
+            XLSX.writeFile(wb, filename);
+        }
+        
+        function exportToPDF() {
+            window.print();
+        }
+        
+        function printShotlist() {
+            window.print();
+        }
             const row = button.closest('tr');
             row.remove();
             shotCount--;
@@ -1082,7 +1677,46 @@
             // Set default times
             document.getElementById('startTime').value = '08:00';
             document.getElementById('wrapTime').value = '18:00';
+            
+            // Load saved versions
+            updateVersionSelect();
+            
             calculateTime();
+            
+            // Auto-save functionality (optional)
+            setInterval(() => {
+                if (currentVersionId && Object.keys(versions).length > 0) {
+                    // Auto-update current version silently
+                    const data = getCurrentShotlistData();
+                    if (versions[currentVersionId]) {
+                        versions[currentVersionId].data = data;
+                        versions[currentVersionId].timestamp = new Date().toISOString();
+                        localStorage.setItem('shotlist-versions', JSON.stringify(versions));
+                    }
+                }
+            }, 30000); // Auto-save every 30 seconds
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                if (e.ctrlKey || e.metaKey) {
+                    if (e.key === 's') {
+                        e.preventDefault();
+                        openSaveVersionModal();
+                    }
+                }
+                
+                // ESC to close modal
+                if (e.key === 'Escape') {
+                    closeVersionModal();
+                }
+            });
+            
+            // Enter key in version input to save
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && e.target.id === 'versionNameInput') {
+                    saveVersionWithName();
+                }
+            });
         });
     </script>
     

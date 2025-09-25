@@ -1405,15 +1405,15 @@ function addStart(data = {}) {
         <td></td>
         <td></td>
         <td class="description-cell"><span class="start-label">START</span></td>
+        <td></td>
+        <td></td>
+        <td></td>
         <td>
             <div class="start-info">
-                <span class="start-info-label">Briefing/Aufbau</span>
                 <input type="number" min="0" class="time-input start-duration-input" value="${duration}" onchange="calculateTime();saveState();">
+                <span class="start-info-label">Briefing/Aufbau</span>
             </div>
         </td>
-        <td></td>
-        <td></td>
-        <td></td>
         <td class="time-display">${duration ? duration + 'm' : '0m'}</td>
         <td class="start-time-cell">--:--</td>
         <td class="action-cell">

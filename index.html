@@ -30,33 +30,128 @@
         .header {
             background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
             color: white;
-            padding: 20px 30px;
+            padding: 25px 30px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
         }
         
-        .header h1 {
-            font-size: 2rem;
-            font-weight: 700;
+        .title-section {
             display: flex;
             align-items: center;
+            gap: 20px;
+        }
+        
+        .title-section h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        
+        .client-input {
+            background: rgba(255,255,255,0.15);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            min-width: 200px;
+        }
+        
+        .client-input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+        
+        .client-input:focus {
+            outline: none;
+            border-color: rgba(255,255,255,0.6);
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .time-tracking {
+            text-align: right;
+        }
+        
+        .time-info {
+            display: flex;
+            flex-direction: column;
             gap: 10px;
+            align-items: flex-end;
+        }
+        
+        .time-row {
+            display: flex;
+            align-items: center;
+            gap: 20px;
         }
         
         .total-time {
-            font-size: 1.1rem;
+            font-size: 1.3rem;
+            font-weight: 700;
+            background: rgba(255,255,255,0.2);
+            padding: 10px 18px;
+            border-radius: 25px;
+        }
+        
+        .schedule-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+        
+        .schedule-info label {
+            color: rgba(255,255,255,0.9);
+        }
+        
+        .schedule-info input[type="time"] {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        
+        .schedule-info input[type="time"]:focus {
+            outline: none;
+            border-color: rgba(255,255,255,0.6);
+        }
+        
+        .wrap-status {
+            font-size: 1rem;
             font-weight: 600;
             background: rgba(255,255,255,0.2);
-            padding: 8px 16px;
-            border-radius: 20px;
+            padding: 6px 14px;
+            border-radius: 15px;
+            min-width: 120px;
+            text-align: center;
+        }
+        
+        .wrap-status.over-time {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            animation: pulse 2s infinite;
+        }
+        
+        .wrap-status.under-time {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
         
         .project-info {
             padding: 25px 30px;
             background: #f8f9fa;
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 20px;
             border-bottom: 1px solid #dee2e6;
         }
@@ -87,37 +182,64 @@
         }
         
         .controls {
-            padding: 20px 30px;
-            background: white;
+            padding: 15px 30px;
+            background: #f8f9fa;
             border-bottom: 1px solid #dee2e6;
             display: flex;
-            gap: 15px;
+            justify-content: flex-end;
+            gap: 12px;
             align-items: center;
+            flex-wrap: wrap;
         }
         
         .btn {
-            background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+            background: #6c757d;
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
+            padding: 8px 16px;
+            border-radius: 4px;
             cursor: pointer;
-            font-weight: 600;
+            font-weight: 500;
             transition: all 0.3s;
-            font-size: 14px;
+            font-size: 13px;
         }
         
         .btn:hover {
+            background: #5a6268;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(74, 144, 226, 0.4);
+        }
+        
+        .btn-pause {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .btn-pause:hover {
+            background: #e0a800;
+        }
+        
+        .btn-wrap {
+            background: #6f42c1;
+        }
+        
+        .btn-wrap:hover {
+            background: #5a32a3;
         }
         
         .btn-danger {
-            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            background: #dc3545;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
         }
         
         .btn-success {
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            background: #28a745;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
         }
         
         .table-container {
@@ -244,6 +366,7 @@
         .col-sound { width: 70px; }
         .col-description { width: 250px; }
         .col-cast { width: 150px; }
+        .col-reference { width: 120px; }
         .col-setup { width: 80px; }
         .col-shoot { width: 80px; }
         .col-total { width: 80px; }
@@ -252,6 +375,140 @@
         .time-display {
             font-weight: 600;
             color: #4a90e2;
+        }
+        
+        .reference-cell {
+            text-align: center;
+        }
+        
+        .reference-upload {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .upload-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        
+        .upload-btn:hover {
+            transform: translateY(-1px);
+        }
+        
+        .image-preview {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+        }
+        
+        .remove-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .remove-btn:hover {
+            background: #c82333;
+        }
+        
+        .image-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            cursor: pointer;
+        }
+        
+        .image-modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 8px;
+        }
+        
+        .image-modal-close {
+            position: absolute;
+            top: 15px;
+            right: 25px;
+            color: white;
+            font-size: 35px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .image-modal-close:hover {
+            opacity: 0.7;
+        }
+        
+        .pause-row {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%) !important;
+            border-left: 5px solid #ffc107 !important;
+        }
+        
+        .pause-row td {
+            background: transparent !important;
+            font-weight: 600;
+            color: #856404;
+        }
+        
+        .pause-row:hover {
+            background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%) !important;
+        }
+        
+        .pause-row:hover td {
+            background: transparent !important;
+        }
+        
+        .wrap-row {
+            background: linear-gradient(135deg, #e2e3ff 0%, #c7c8ff 100%) !important;
+            border-left: 5px solid #6f42c1 !important;
+        }
+        
+        .wrap-row td {
+            background: transparent !important;
+            font-weight: 600;
+            color: #4a148c;
+        }
+        
+        .wrap-row:hover {
+            background: linear-gradient(135deg, #c7c8ff 0%, #a29bfe 100%) !important;
+        }
+        
+        .wrap-row:hover td {
+            background: transparent !important;
+        }
+        
+        .pause-label, .wrap-label {
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
         }
         
         @media (max-width: 1200px) {
@@ -273,9 +530,27 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📹 SHOT LIST</h1>
-            <div class="total-time">
-                Total Time (minutes): <span id="totalTimeDisplay">0</span>
+            <div class="title-section">
+                <h1>SHOT LIST</h1>
+                <input type="text" id="clientName" placeholder="Client Name" class="client-input">
+            </div>
+            <div class="time-tracking">
+                <div class="time-info">
+                    <div class="time-row">
+                        <div class="total-time">
+                            Total Time: <span id="totalTimeDisplay">0h 0m</span>
+                        </div>
+                        <div class="schedule-info">
+                            <label>Start:</label>
+                            <input type="time" id="startTime" value="08:00" onchange="calculateTime()">
+                            <label>WRAP:</label>
+                            <input type="time" id="wrapTime" value="18:00" onchange="calculateTime()">
+                        </div>
+                    </div>
+                    <div class="wrap-status" id="wrapStatus">
+                        Set Times
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -296,10 +571,20 @@
                 <label>Date:</label>
                 <input type="text" id="date" placeholder="8/28/22" value="8/28/22">
             </div>
+            <div class="info-group">
+                <label>Cinematographer:</label>
+                <input type="text" id="cinematographer" placeholder="Name des DOP">
+            </div>
+            <div class="info-group">
+                <label>Agency:</label>
+                <input type="text" id="agency" placeholder="Agentur/Produktionsfirma">
+            </div>
         </div>
         
         <div class="controls">
             <button class="btn" onclick="addShot()">+ Shot hinzufügen</button>
+            <button class="btn btn-pause" onclick="addPause()">⏸️ Pause hinzufügen</button>
+            <button class="btn btn-wrap" onclick="addWrap()">🎬 WRAP hinzufügen</button>
             <button class="btn btn-success" onclick="loadSampleData()">Beispieldaten laden</button>
             <button class="btn btn-danger" onclick="clearAll()">Alle löschen</button>
         </div>
@@ -318,6 +603,7 @@
                         <th class="col-sound">Sound</th>
                         <th class="col-description">Shot Description</th>
                         <th class="col-cast">Cast</th>
+                        <th class="col-reference">Reference</th>
                         <th class="col-setup">Setup Time</th>
                         <th class="col-shoot">Shoot Time</th>
                         <th class="col-total">Total Time</th>
@@ -386,6 +672,16 @@
                     <textarea placeholder="Detailed shot description..." onchange="calculateTime()"></textarea>
                 </td>
                 <td class="cast-cell"><input type="text" placeholder="Portrait Frame" onchange="calculateTime()"></td>
+                <td class="reference-cell">
+                    <div class="reference-upload">
+                        <input type="file" accept="image/*" onchange="handleImageUpload(this)" style="display: none;">
+                        <button type="button" onclick="this.parentElement.querySelector('input[type=file]').click()" class="upload-btn">📁 Upload</button>
+                        <div class="image-preview" style="display: none;">
+                            <img src="" alt="Reference" style="width: 60px; height: 40px; object-fit: cover; border-radius: 4px; cursor: pointer;" onclick="openImageModal(this)">
+                            <button type="button" onclick="removeImage(this)" class="remove-btn">×</button>
+                        </div>
+                    </div>
+                </td>
                 <td class="time-input">
                     <input type="number" placeholder="5" min="0" step="0.5" onchange="calculateTime()">
                 </td>
@@ -403,6 +699,72 @@
             calculateTime();
         }
         
+        function addPause() {
+            const tbody = document.getElementById('shotlistBody');
+            const row = document.createElement('tr');
+            row.className = 'pause-row';
+            
+            row.innerHTML = `
+                <td class="pause-label">⏸️</td>
+                <td class="pause-label">PAUSE</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="description-cell">
+                    <textarea placeholder="Pause Grund: Mittagspause, Equipment Setup, etc..." onchange="calculateTime()"></textarea>
+                </td>
+                <td>-</td>
+                <td>-</td>
+                <td class="time-input">
+                    <input type="number" placeholder="60" min="1" step="1" onchange="calculateTime()">
+                </td>
+                <td>-</td>
+                <td class="time-input time-display">
+                    <span>0</span>
+                </td>
+                <td><button class="delete-btn" onclick="deleteShot(this)">×</button></td>
+            `;
+            
+            tbody.appendChild(row);
+            calculateTime();
+        }
+        
+        function addWrap() {
+            const tbody = document.getElementById('shotlistBody');
+            const row = document.createElement('tr');
+            row.className = 'wrap-row';
+            
+            row.innerHTML = `
+                <td class="wrap-label">🎬</td>
+                <td class="wrap-label">WRAP</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="description-cell">
+                    <textarea placeholder="WRAP Aktivitäten: Equipment einpacken, Location cleanup, etc..." onchange="calculateTime()"></textarea>
+                </td>
+                <td>-</td>
+                <td>-</td>
+                <td class="time-input">
+                    <input type="number" placeholder="30" min="1" step="1" onchange="calculateTime()">
+                </td>
+                <td>-</td>
+                <td class="time-input time-display">
+                    <span>0</span>
+                </td>
+                <td><button class="delete-btn" onclick="deleteShot(this)">×</button></td>
+            `;
+            
+            tbody.appendChild(row);
+            calculateTime();
+        }
+        
         function deleteShot(button) {
             const row = button.closest('tr');
             row.remove();
@@ -415,19 +777,74 @@
             
             const rows = document.querySelectorAll('#shotlistBody tr');
             rows.forEach(row => {
-                const setupInput = row.querySelector('.time-input input[placeholder="5"]');
-                const shootInput = row.querySelector('.time-input input[placeholder="10"]');
-                const totalCell = row.querySelector('.time-display span');
+                let setupTime = 0;
+                let shootTime = 0;
                 
-                const setupTime = parseFloat(setupInput.value) || 0;
-                const shootTime = parseFloat(shootInput.value) || 0;
+                if (row.classList.contains('pause-row') || row.classList.contains('wrap-row')) {
+                    // Für Pause/WRAP nur die eingegebene Zeit verwenden
+                    const timeInput = row.querySelector('.time-input input');
+                    shootTime = parseFloat(timeInput.value) || 0;
+                } else {
+                    // Für normale Shots Setup + Shoot Time
+                    const setupInput = row.querySelector('.time-input input[placeholder="5"]');
+                    const shootInput = row.querySelector('.time-input input[placeholder="10"]');
+                    setupTime = parseFloat(setupInput.value) || 0;
+                    shootTime = parseFloat(shootInput.value) || 0;
+                }
+                
                 const rowTotal = setupTime + shootTime;
+                const totalCell = row.querySelector('.time-display span');
                 
                 totalCell.textContent = rowTotal.toFixed(1);
                 totalMinutes += rowTotal;
             });
             
-            document.getElementById('totalTimeDisplay').textContent = totalMinutes.toFixed(1);
+            // Format total time as hours and minutes
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = Math.round(totalMinutes % 60);
+            document.getElementById('totalTimeDisplay').textContent = `${hours}h ${minutes}m`;
+            
+            // WRAP Time Berechnung mit Uhrzeiten
+            const startTime = document.getElementById('startTime').value;
+            const wrapTime = document.getElementById('wrapTime').value;
+            const wrapStatus = document.getElementById('wrapStatus');
+            
+            if (startTime && wrapTime) {
+                const startMinutes = timeToMinutes(startTime);
+                const wrapMinutes = timeToMinutes(wrapTime);
+                const availableMinutes = wrapMinutes - startMinutes;
+                
+                if (availableMinutes <= 0) {
+                    wrapStatus.textContent = 'Invalid Times';
+                    wrapStatus.className = 'wrap-status';
+                    return;
+                }
+                
+                const difference = totalMinutes - availableMinutes;
+                
+                if (Math.abs(difference) < 5) {
+                    wrapStatus.textContent = 'On Schedule';
+                    wrapStatus.className = 'wrap-status';
+                } else if (difference > 0) {
+                    const overHours = Math.floor(difference / 60);
+                    const overMinutes = Math.round(difference % 60);
+                    wrapStatus.textContent = `Over by ${overHours > 0 ? overHours + 'h ' : ''}${overMinutes}m`;
+                    wrapStatus.className = 'wrap-status over-time';
+                } else {
+                    const underHours = Math.floor(Math.abs(difference) / 60);
+                    const underMinutes = Math.round(Math.abs(difference) % 60);
+                    wrapStatus.textContent = `Under by ${underHours > 0 ? underHours + 'h ' : ''}${underMinutes}m`;
+                    wrapStatus.className = 'wrap-status under-time';
+                }
+            } else {
+                wrapStatus.textContent = 'Set Times';
+                wrapStatus.className = 'wrap-status';
+            }
+        }
+        
+        function timeToMinutes(timeString) {
+            const [hours, minutes] = timeString.split(':').map(Number);
+            return hours * 60 + minutes;
         }
         
         function clearAll() {
@@ -480,7 +897,7 @@
                 {
                     scene: '2', shot: 'A', type: 'LS', movement: 'Stationary', gear: '', location: "Wayne's Apartment",
                     extInt: 'INT DAY', sound: 'No', description: 'Tracy answers. Wayne demands the phone, swiping at it. Tracy evades',
-                    cast: 'Wayne, Tracy, Hailey', setup: '4', shoot: '15'
+                    cast: 'Wayne, Tracy, Hailey', setup: '4', shoot: '15', reference: null
                 }
             ];
             
@@ -503,7 +920,76 @@
                 inputs[11].value = shot.shoot;
             });
             
+            // Füge Beispiel-Pause und WRAP hinzu
+            addPause();
+            const pauseRow = document.querySelector('#shotlistBody .pause-row:last-child');
+            pauseRow.querySelector('textarea').value = 'Mittagspause - Crew Catering';
+            pauseRow.querySelector('.time-input input').value = '60';
+            
+            addWrap();
+            const wrapRow = document.querySelector('#shotlistBody .wrap-row:last-child');
+            wrapRow.querySelector('textarea').value = 'Equipment einpacken, Location cleanup';
+            wrapRow.querySelector('.time-input input').value = '30';
+            
+            // Set example start/wrap times
+            document.getElementById('startTime').value = '08:00';
+            document.getElementById('wrapTime').value = '18:00';
+            
             calculateTime();
+        }
+        
+        function handleImageUpload(input) {
+            const file = input.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const uploadDiv = input.parentElement;
+                    const uploadBtn = uploadDiv.querySelector('.upload-btn');
+                    const previewDiv = uploadDiv.querySelector('.image-preview');
+                    const img = previewDiv.querySelector('img');
+                    
+                    img.src = e.target.result;
+                    uploadBtn.style.display = 'none';
+                    previewDiv.style.display = 'flex';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        function removeImage(button) {
+            const uploadDiv = button.closest('.reference-upload');
+            const uploadBtn = uploadDiv.querySelector('.upload-btn');
+            const previewDiv = uploadDiv.querySelector('.image-preview');
+            const fileInput = uploadDiv.querySelector('input[type=file]');
+            const img = previewDiv.querySelector('img');
+            
+            img.src = '';
+            fileInput.value = '';
+            uploadBtn.style.display = 'block';
+            previewDiv.style.display = 'none';
+        }
+        
+        function openImageModal(img) {
+            const modal = document.getElementById('imageModal');
+            const modalImg = document.getElementById('modalImage');
+            
+            if (!modal) {
+                // Create modal if it doesn't exist
+                const modalHtml = `
+                    <div id="imageModal" class="image-modal" onclick="closeImageModal()">
+                        <span class="image-modal-close">&times;</span>
+                        <img class="image-modal-content" id="modalImage">
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+            }
+            
+            document.getElementById('imageModal').style.display = 'block';
+            document.getElementById('modalImage').src = img.src;
+        }
+        
+        function closeImageModal() {
+            document.getElementById('imageModal').style.display = 'none';
         }
         
         function exportToExcel() {
@@ -527,7 +1013,7 @@
             // Tabellen-Header
             data.push([
                 'Scene #', 'Shot', 'Shot Type', 'Movement', 'Gear', 'Location',
-                'EXT / INT', 'Sound', 'Shot Description', 'Cast',
+                'EXT / INT', 'Sound', 'Shot Description', 'Cast', 'Reference Image',
                 'Setup Time', 'Shoot Time', 'Total Time'
             ]);
             
@@ -537,16 +1023,30 @@
                 const cells = row.querySelectorAll('td');
                 const rowData = [];
                 
-                cells.forEach((cell, index) => {
-                    if (index < cells.length - 1) { // Letzte Spalte (Löschen-Button) überspringen
-                        if (index === 12) { // Total Time Spalte
-                            rowData.push(cell.querySelector('span').textContent);
-                        } else {
-                            const input = cell.querySelector('input, select, textarea');
-                            rowData.push(input ? input.value : cell.textContent);
+                // Prüfe ob es Pause oder WRAP ist
+                if (row.classList.contains('pause-row')) {
+                    rowData.push('PAUSE', 'PAUSE', '-', '-', '-', '-', '-', '-', 
+                        cells[8].querySelector('textarea').value, '-', '-', 
+                        cells[11].querySelector('input').value, cells[12].querySelector('span').textContent);
+                } else if (row.classList.contains('wrap-row')) {
+                    rowData.push('WRAP', 'WRAP', '-', '-', '-', '-', '-', '-', 
+                        cells[8].querySelector('textarea').value, '-', '-', 
+                        cells[11].querySelector('input').value, cells[12].querySelector('span').textContent);
+                } else {
+                    cells.forEach((cell, index) => {
+                        if (index < cells.length - 1) { // Letzte Spalte (Löschen-Button) überspringen
+                            if (index === 13) { // Total Time Spalte
+                                rowData.push(cell.querySelector('span').textContent);
+                            } else if (index === 10) { // Reference Image Spalte
+                                const img = cell.querySelector('img');
+                                rowData.push(img && img.src && img.src !== '' ? 'Reference Image Available' : 'No Reference');
+                            } else {
+                                const input = cell.querySelector('input, select, textarea');
+                                rowData.push(input ? input.value : cell.textContent);
+                            }
                         }
-                    }
-                });
+                    });
+                }
                 
                 data.push(rowData);
             });
@@ -558,7 +1058,7 @@
             // Spaltenbreiten
             ws['!cols'] = [
                 {wch: 10}, {wch: 6}, {wch: 10}, {wch: 12}, {wch: 15}, {wch: 15},
-                {wch: 10}, {wch: 8}, {wch: 35}, {wch: 20}, {wch: 10}, {wch: 10}, {wch: 10}
+                {wch: 10}, {wch: 8}, {wch: 35}, {wch: 20}, {wch: 15}, {wch: 10}, {wch: 10}, {wch: 10}
             ];
             
             XLSX.utils.book_append_sheet(wb, ws, 'Shotlist');
@@ -578,6 +1078,11 @@
             addShot();
             addShot();
             addShot();
+            
+            // Set default times
+            document.getElementById('startTime').value = '08:00';
+            document.getElementById('wrapTime').value = '18:00';
+            calculateTime();
         });
     </script>
     

@@ -430,6 +430,7 @@
         .table-container {
             overflow-x: auto;
             max-height: 70vh;
+            margin-bottom: 30px;
         }
         
         .shotlist-table {
@@ -793,7 +794,7 @@
         .start-info {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             justify-content: flex-start;
         }
 
@@ -1688,17 +1689,13 @@ function saveState() {
             shoot: parseInt(shootInput ? shootInput.value : 0, 10) || 0
         };
     });
-    const meta = {
-        client: document.getElementById('clientName').value,
-        production: document.getElementById('productionTitle').value,
-        location: document.getElementById('location').value,
-        director: document.getElementById('director').value,
-        date: document.getElementById('date').value,
-        cinematographer: document.getElementById('cinematographer').value,
-        agency: document.getElementById('agency').value,
-        start: document.getElementById('startTime').value,
-        wrap: document.getElementById('wrapTime').value
-    };
+    const meta = {};
+    [
+        'clientName','productionTitle','location','director','date','cinematographer','agency','startTime','wrapTime'
+    ].forEach(id => {
+        const el = document.getElementById(id);
+        meta[id] = el ? el.value : '';
+    });
     localStorage.setItem(CURRENT_STATE_KEY, JSON.stringify({data,meta}));
     if (!isRestoringState && getActiveVersion()) {
         setActiveVersion('');
@@ -1712,6 +1709,18 @@ function loadState() {
     const {data,meta} = JSON.parse(state);
     const body = document.getElementById('shotlistBody');
     if (!body) return false;
+    const legacyMetaMap = {
+        client: 'clientName',
+        production: 'productionTitle',
+        start: 'startTime',
+        wrap: 'wrapTime'
+    };
+    Object.keys(legacyMetaMap).forEach(oldKey => {
+        const newKey = legacyMetaMap[oldKey];
+        if (meta && meta[oldKey] !== undefined && meta[newKey] === undefined) {
+            meta[newKey] = meta[oldKey];
+        }
+    });
     isRestoringState = true;
     try {
         body.innerHTML = '';
@@ -1745,9 +1754,12 @@ function loadState() {
     } finally {
         isRestoringState = false;
     }
-    for (const k in meta) {
-        if (document.getElementById(k)) document.getElementById(k).value = meta[k];
-    }
+    [
+        'clientName','productionTitle','location','director','date','cinematographer','agency','startTime','wrapTime'
+    ].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = meta && meta[id] !== undefined ? meta[id] : '';
+    });
     calculateTime();
     return true;
 }

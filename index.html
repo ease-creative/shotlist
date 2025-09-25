@@ -696,63 +696,6 @@
             color: #117a8b;
         }
         
-        .column-toggle {
-            padding: 15px 30px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
-        }
-
-        .column-toggle-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            width: 100%;
-            background: none;
-            border: none;
-            color: #495057;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            padding: 0;
-        }
-
-        .column-toggle-header:focus {
-            outline: 2px solid #4a90e2;
-            outline-offset: 2px;
-        }
-
-        .column-checkboxes {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
-            margin-top: 12px;
-        }
-
-        .column-toggle.collapsed .column-checkboxes {
-            display: none;
-        }
-        
-        .toggle-arrow {
-            font-size: 16px;
-            line-height: 1;
-        }
-        
-        .column-checkbox {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-        }
-        
-        .column-checkbox input[type="checkbox"] {
-            cursor: pointer;
-        }
-        
-        .column-checkbox label {
-            cursor: pointer;
-            user-select: none;
-        }
-        
         .image-modal {
             display: none;
             position: fixed;
@@ -914,6 +857,96 @@
         .shotlist-table .start-row .start-duration-input::-webkit-inner-spin-button {
             margin: 0;
         }
+
+        .column-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.2);
+            z-index: 1100;
+            padding: 20px;
+        }
+
+        .column-overlay.visible {
+            display: flex;
+        }
+
+        .column-overlay-content {
+            background: rgba(255,255,255,0.97);
+            border-radius: 14px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+            padding: 20px;
+            min-width: 320px;
+            max-width: 420px;
+            max-height: 70vh;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .column-overlay-content h3 {
+            margin: 0;
+            font-size: 16px;
+            color: #343a40;
+        }
+
+        .column-overlay-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .column-overlay-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 8px 10px;
+            background: white;
+            cursor: grab;
+        }
+
+        .column-overlay-item.dragging {
+            opacity: 0.6;
+            cursor: grabbing;
+        }
+
+        .column-overlay-item .drag-handle {
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        .column-overlay-label {
+            flex: 1;
+            font-weight: 500;
+            color: #343a40;
+        }
+
+        .column-visibility-btn {
+            background: none;
+            border: none;
+            font-size: 16px;
+            color: #6c757d;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .column-visibility-btn.hidden {
+            color: #adb5bd;
+        }
+
+        .column-visibility-btn:hover {
+            background: rgba(0,0,0,0.05);
+        }
         
         @media (max-width: 1200px) {
             .project-info {
@@ -985,71 +1018,6 @@
             </div>
         </div>
         
-        <div class="column-toggle collapsed" id="columnToggle">
-            <button type="button" class="column-toggle-header" id="columnToggleButton">
-                <span class="toggle-arrow" aria-hidden="true">▶</span>
-                <span>Spalten anzeigen/ausblenden</span>
-            </button>
-            <div class="column-checkboxes">
-                <div class="column-checkbox">
-                    <input type="checkbox" id="col-scene" checked onchange="toggleColumn(0)">
-                    <label for="col-scene">Scene #</label>
-                </div>
-                <div class="column-checkbox">
-                    <input type="checkbox" id="col-shot" checked onchange="toggleColumn(1)">
-                    <label for="col-shot">Shot</label>
-                </div>
-                <div class="column-checkbox">
-                    <input type="checkbox" id="col-type" checked onchange="toggleColumn(2)">
-                    <label for="col-type">Shot Type</label>
-                </div>
-                <div class="column-checkbox">
-                    <input type="checkbox" id="col-movement" checked onchange="toggleColumn(3)">
-                    <label for="col-movement">Movement</label>
-                </div>
-                <div class="column-checkbox">
-                    <input type="checkbox" id="col-gear" checked onchange="toggleColumn(4)">
-                    <label for="col-gear">Gear</label>
-                </div>
-                <div class="column-checkbox">
-                    <input type="checkbox" id="col-location" checked onchange="toggleColumn(5)">
-                    <label for="col-location">Location</label>
-                </div>
-                <div class="column-checkbox">
-                    <input type="checkbox" id="col-extint" checked onchange="toggleColumn(6)">
-                    <label for="col-extint">EXT/INT</label>
-                </div>
-                <div class="column-checkbox">
-                    <input type="checkbox" id="col-sound" checked onchange="toggleColumn(7)">
-                    <label for="col-sound">Sound</label>
-                </div>
-                <div class="column-checkbox">
-                    <input type="checkbox" id="col-description" checked onchange="toggleColumn(8)">
-                    <label for="col-description">Description</label>
-                </div>
-                <div class="column-checkbox">
-                    <input type="checkbox" id="col-cast" checked onchange="toggleColumn(9)">
-                    <label for="col-cast">Cast</label>
-                </div>
-                <div class="column-checkbox">
-                    <input type="checkbox" id="col-reference" checked onchange="toggleColumn(10)">
-                    <label for="col-reference">Reference</label>
-                </div>
-                <div class="column-checkbox">
-                    <input type="checkbox" id="col-setup" checked onchange="toggleColumn(11)">
-                    <label for="col-setup">Setup Time</label>
-                </div>
-                <div class="column-checkbox">
-                    <input type="checkbox" id="col-shoot" checked onchange="toggleColumn(12)">
-                    <label for="col-shoot">Shoot Time</label>
-                </div>
-                <div class="column-checkbox">
-                    <input type="checkbox" id="col-total" checked onchange="toggleColumn(13)">
-                    <label for="col-total">Total Time</label>
-                </div>
-            </div>
-        </div>
-        
         <div class="controls">
             <div class="version-controls">
                 <button class="btn btn-version" onclick="openSaveVersionModal()">💾 Version speichern</button>
@@ -1063,6 +1031,7 @@
                 <select id="projectSelect" onchange="loadSelectedProject()" class="project-select">
                     <option value="">Projekt laden...</option>
                 </select>
+                <button type="button" class="btn btn-project-secondary" id="columnMenuButton">Spalten</button>
                 <button class="btn btn-project-secondary" onclick="exportProject()">⬇️ Export</button>
                 <button class="btn btn-project-secondary" onclick="document.getElementById('projectImportInput').click()">⬆️ Import</button>
                 <input type="file" id="projectImportInput" accept="application/json" style="display:none" onchange="importProjectFile(event)">
@@ -1084,22 +1053,22 @@
             <table class="shotlist-table">
                 <thead>
                     <tr>
-                        <th class="col-scene">Scene #</th>
-                        <th class="col-shot">Shot</th>
-                        <th class="col-type">Shot Type</th>
-                        <th class="col-movement">Movement</th>
-                        <th class="col-gear">Gear</th>
-                        <th class="col-location">Location</th>
-                        <th class="col-extint">EXT / INT</th>
-                        <th class="col-sound">Sound</th>
-                        <th class="col-description">Shot Description</th>
-                        <th class="col-cast">Cast</th>
-                        <th class="col-reference">Reference</th>
-                        <th class="col-setup">Setup Time</th>
-                        <th class="col-shoot">Shoot Time</th>
-                        <th class="col-total">Total Time</th>
-                        <th class="col-start">Uhrzeit</th>
-                        <th class="col-action">Action</th>
+                        <th data-col-key="scene" class="col-scene">Scene #</th>
+                        <th data-col-key="shot" class="col-shot">Shot</th>
+                        <th data-col-key="type" class="col-type">Shot Type</th>
+                        <th data-col-key="movement" class="col-movement">Movement</th>
+                        <th data-col-key="gear" class="col-gear">Gear</th>
+                        <th data-col-key="location" class="col-location">Location</th>
+                        <th data-col-key="extint" class="col-extint">EXT / INT</th>
+                        <th data-col-key="sound" class="col-sound">Sound</th>
+                        <th data-col-key="description" class="col-description">Shot Description</th>
+                        <th data-col-key="cast" class="col-cast">Cast</th>
+                        <th data-col-key="reference" class="col-reference">Reference</th>
+                        <th data-col-key="setup" class="col-setup">Setup Time</th>
+                        <th data-col-key="shoot" class="col-shoot">Shoot Time</th>
+                        <th data-col-key="total" class="col-total">Total Time</th>
+                        <th data-col-key="time" class="col-start">Uhrzeit</th>
+                        <th data-col-key="action" class="col-action">Action</th>
                     </tr>
                 </thead>
                 <tbody id="shotlistBody">
@@ -1132,6 +1101,13 @@
         </div>
     </div>
 
+    <div id="columnOverlay" class="column-overlay" aria-hidden="true">
+        <div class="column-overlay-content">
+            <h3>Spalten</h3>
+            <div id="columnOverlayList" class="column-overlay-list"></div>
+        </div>
+    </div>
+
     <!-- Neuer Script-Block -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script>
@@ -1142,25 +1118,219 @@ const ACTIVE_VERSION_KEY = 'shotlist-active-version';
 const PROJECT_STORAGE_KEY = 'shotlist-projects';
 const ACTIVE_PROJECT_KEY = 'shotlist-active-project';
 
-function getColumnStates() {
-    return Array.from(document.querySelectorAll('.column-checkbox input')).map(cb => cb.checked);
-}
-
-function applyColumnStates(states) {
-    const checkboxes = Array.from(document.querySelectorAll('.column-checkbox input'));
-    if (!checkboxes.length) return;
-    checkboxes.forEach((cb, idx) => {
-        if (Array.isArray(states) && typeof states[idx] === 'boolean') {
-            cb.checked = states[idx];
-        }
-    });
-    checkboxes.forEach((cb, idx) => toggleColumn(idx));
-}
-
 function autoGrow(el) {
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = (el.scrollHeight) + 'px';
+}
+
+function getDefaultColumnSettings() {
+    return {
+        order: COLUMN_DEFS.map(def => def.key),
+        visibility: COLUMN_DEFS.reduce((acc, def) => {
+            acc[def.key] = true;
+            return acc;
+        }, {})
+    };
+}
+
+function normalizeColumnSettings(settings) {
+    const defaults = getDefaultColumnSettings();
+    if (Array.isArray(settings)) {
+        const visibility = Object.assign({}, defaults.visibility);
+        settings.forEach((value, idx) => {
+            const def = COLUMN_DEFS[idx];
+            if (def) visibility[def.key] = value !== false;
+        });
+        return {order: defaults.order.slice(), visibility};
+    }
+    let order = Array.isArray(settings && settings.order) ? settings.order.filter(key => COLUMN_DEFS.some(def => def.key === key)) : defaults.order.slice();
+    COLUMN_DEFS.forEach(def => {
+        if (!order.includes(def.key)) order.push(def.key);
+    });
+    const visibility = Object.assign({}, defaults.visibility, settings && settings.visibility ? settings.visibility : {});
+    return {order, visibility};
+}
+
+function loadColumnSettings() {
+    try {
+        const stored = JSON.parse(localStorage.getItem(COLUMN_SETTINGS_KEY) || 'null');
+        return normalizeColumnSettings(stored || {});
+    } catch (err) {
+        console.error(err);
+        return getDefaultColumnSettings();
+    }
+}
+
+function saveColumnSettings(settings) {
+    localStorage.setItem(COLUMN_SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function reorderTableColumns(order) {
+    const table = document.querySelector('.shotlist-table');
+    if (!table || !Array.isArray(order)) return;
+    const rows = table.querySelectorAll('tr');
+    rows.forEach(row => {
+        const cells = Array.from(row.children);
+        if (!cells.length) return;
+        const map = new Map();
+        cells.forEach(cell => {
+            const key = cell.getAttribute('data-col-key');
+            if (key) map.set(key, cell);
+        });
+        const orderedCells = [];
+        order.forEach(key => {
+            const cell = map.get(key);
+            if (cell) orderedCells.push(cell);
+        });
+        cells.forEach(cell => {
+            const key = cell.getAttribute('data-col-key');
+            if (!order.includes(key)) orderedCells.push(cell);
+        });
+        orderedCells.forEach(cell => row.appendChild(cell));
+    });
+}
+
+function applyColumnVisibility(visibility) {
+    COLUMN_DEFS.forEach(def => {
+        const show = visibility && visibility[def.key] !== false;
+        document.querySelectorAll(`[data-col-key="${def.key}"]`).forEach(cell => {
+            cell.style.display = show ? '' : 'none';
+        });
+    });
+}
+
+function applyColumnSettings(settings, persist = false) {
+    columnSettings = normalizeColumnSettings(settings || columnSettings || loadColumnSettings());
+    reorderTableColumns(columnSettings.order);
+    applyColumnVisibility(columnSettings.visibility);
+    if (persist) saveColumnSettings(columnSettings);
+}
+
+function toggleColumnVisibility(key) {
+    if (!columnSettings) return;
+    columnSettings.visibility[key] = columnSettings.visibility[key] === false ? true : false;
+    applyColumnSettings(columnSettings, true);
+    saveState();
+    updateColumnOverlayList();
+}
+
+function openColumnOverlay() {
+    const overlay = document.getElementById('columnOverlay');
+    if (!overlay) return;
+    overlay.classList.add('visible');
+    overlay.setAttribute('aria-hidden', 'false');
+    columnOverlayVisible = true;
+    overlay.addEventListener('click', handleColumnOverlayBackdropClick);
+    updateColumnOverlayList();
+    document.addEventListener('keydown', handleColumnOverlayKeydown);
+}
+
+function closeColumnOverlay() {
+    const overlay = document.getElementById('columnOverlay');
+    if (!overlay) return;
+    overlay.classList.remove('visible');
+    overlay.setAttribute('aria-hidden', 'true');
+    columnOverlayVisible = false;
+    overlay.removeEventListener('click', handleColumnOverlayBackdropClick);
+    document.removeEventListener('keydown', handleColumnOverlayKeydown);
+}
+
+function toggleColumnOverlay() {
+    if (columnOverlayVisible) {
+        closeColumnOverlay();
+    } else {
+        openColumnOverlay();
+    }
+}
+
+function handleColumnOverlayBackdropClick(event) {
+    const content = document.querySelector('.column-overlay-content');
+    if (content && !content.contains(event.target)) {
+        closeColumnOverlay();
+    }
+}
+
+function handleColumnOverlayKeydown(event) {
+    if (event.key === 'Escape' && columnOverlayVisible) {
+        closeColumnOverlay();
+    }
+}
+
+function handleColumnDragStart(event) {
+    const item = event.currentTarget;
+    draggedColumnKey = item.dataset.key;
+    item.classList.add('dragging');
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', draggedColumnKey);
+}
+
+function handleColumnDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+}
+
+function handleColumnDrop(event) {
+    event.preventDefault();
+    const targetKey = event.currentTarget.dataset.key;
+    if (!draggedColumnKey || draggedColumnKey === targetKey) return;
+    const order = columnSettings.order.filter(key => key !== draggedColumnKey);
+    const targetIndex = order.indexOf(targetKey);
+    if (targetIndex === -1) {
+        order.push(draggedColumnKey);
+    } else {
+        order.splice(targetIndex, 0, draggedColumnKey);
+    }
+    columnSettings = normalizeColumnSettings({order, visibility: columnSettings.visibility});
+    applyColumnSettings(columnSettings, true);
+    saveState();
+    updateColumnOverlayList();
+    event.currentTarget.classList.remove('dragging');
+}
+
+function handleColumnDragEnd(event) {
+    event.currentTarget.classList.remove('dragging');
+    draggedColumnKey = null;
+}
+
+function updateColumnOverlayList() {
+    const list = document.getElementById('columnOverlayList');
+    if (!list || !columnSettings) return;
+    list.innerHTML = '';
+    const visibility = columnSettings.visibility || {};
+    columnSettings.order.forEach(key => {
+        const def = COLUMN_DEFS.find(d => d.key === key);
+        if (!def) return;
+        const item = document.createElement('div');
+        item.className = 'column-overlay-item';
+        item.dataset.key = key;
+        item.draggable = true;
+        const handle = document.createElement('span');
+        handle.className = 'drag-handle';
+        handle.textContent = '⋮⋮';
+        handle.setAttribute('aria-hidden', 'true');
+        const label = document.createElement('span');
+        label.className = 'column-overlay-label';
+        label.textContent = def.label;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'column-visibility-btn' + (visibility[key] === false ? ' hidden' : '');
+        button.textContent = visibility[key] === false ? '🚫' : '👁';
+        button.title = 'Spalte ein-/ausblenden';
+        button.classList.toggle('hidden', visibility[key] === false);
+        button.addEventListener('click', (evt) => {
+            evt.stopPropagation();
+            toggleColumnVisibility(key);
+        });
+        item.appendChild(handle);
+        item.appendChild(label);
+        item.appendChild(button);
+        item.addEventListener('dragstart', handleColumnDragStart);
+        item.addEventListener('dragover', handleColumnDragOver);
+        item.addEventListener('drop', handleColumnDrop);
+        item.addEventListener('dragend', handleColumnDragEnd);
+        list.appendChild(item);
+    });
 }
 
 function captureSnapshot() {
@@ -1194,14 +1364,14 @@ function captureSnapshot() {
         const shotInput = row.querySelector('.shot-letter input');
         const shotTypeSelect = row.querySelector('.shot-type-select');
         const movementSelect = row.querySelector('.movement-select');
-        const gearInput = row.querySelector('.gear-cell textarea, .gear-cell input');
-        const locationInput = row.querySelector('.location-cell textarea, .location-cell input');
-        const extintSelect = row.cells[6]?.querySelector('select');
-        const soundSelect = row.cells[7]?.querySelector('select');
-        const descriptionTextarea = row.querySelector('.description-cell textarea');
-        const castInput = row.querySelector('.cast-cell textarea, .cast-cell input');
-        const setupInput = row.cells[11]?.querySelector('input');
-        const shootInput = row.cells[12]?.querySelector('input');
+        const gearInput = row.querySelector('[data-col-key="gear"] textarea, [data-col-key="gear"] input');
+        const locationInput = row.querySelector('[data-col-key="location"] textarea, [data-col-key="location"] input');
+        const extintSelect = row.querySelector('[data-col-key="extint"] select');
+        const soundSelect = row.querySelector('[data-col-key="sound"] select');
+        const descriptionTextarea = row.querySelector('[data-col-key="description"] textarea');
+        const castInput = row.querySelector('[data-col-key="cast"] textarea, [data-col-key="cast"] input');
+        const setupInput = row.querySelector('[data-col-key="setup"] input');
+        const shootInput = row.querySelector('[data-col-key="shoot"] input');
         return {
             type:'shot',
             scene: sceneInput ? sceneInput.value : '',
@@ -1225,7 +1395,8 @@ function captureSnapshot() {
         const el = document.getElementById(id);
         meta[id] = el ? el.value : '';
     });
-    const columns = getColumnStates();
+    columnSettings = normalizeColumnSettings(columnSettings || loadColumnSettings());
+    const columns = JSON.parse(JSON.stringify(columnSettings));
     const versions = JSON.parse(localStorage.getItem(VERSION_STORAGE_KEY) || '[]');
     const activeVersion = getActiveVersion();
     return {data, meta, columns, versions, activeVersion};
@@ -1291,11 +1462,9 @@ function loadSnapshot(snapshot) {
         const el = document.getElementById(id);
         if (el) el.value = meta[id] !== undefined ? meta[id] : '';
     });
-    if (Array.isArray(columns)) {
-        applyColumnStates(columns);
-    } else {
-        document.querySelectorAll('.column-checkbox input').forEach((cb, idx) => toggleColumn(idx));
-    }
+    columnSettings = normalizeColumnSettings(columns || loadColumnSettings());
+    applyColumnSettings(columnSettings, true);
+    updateColumnOverlayList();
     if (Array.isArray(snapshot.versions)) {
         localStorage.setItem(VERSION_STORAGE_KEY, JSON.stringify(snapshot.versions));
         setActiveVersion(snapshot.activeVersion || '');
@@ -1452,9 +1621,33 @@ const SOUND_OPTIONS = [
     'Yes','No','Music','SFX (Sound Effects)','VO (Voice Over)'
 ];
 
+const COLUMN_DEFS = [
+    {key:'scene', label:'Scene #'},
+    {key:'shot', label:'Shot'},
+    {key:'type', label:'Shot Type'},
+    {key:'movement', label:'Movement'},
+    {key:'gear', label:'Gear'},
+    {key:'location', label:'Location'},
+    {key:'extint', label:'EXT/INT'},
+    {key:'sound', label:'Sound'},
+    {key:'description', label:'Description'},
+    {key:'cast', label:'Cast'},
+    {key:'reference', label:'Reference'},
+    {key:'setup', label:'Setup Time'},
+    {key:'shoot', label:'Shoot Time'},
+    {key:'total', label:'Total Time'},
+    {key:'time', label:'Uhrzeit'},
+    {key:'action', label:'Action'}
+];
+
 let isRestoringState = false;
 let lastResetState = null;
 let draggedRow = null;
+let draggedColumnKey = null;
+let columnOverlayVisible = false;
+let columnSettings = null;
+
+const COLUMN_SETTINGS_KEY = 'shotlist-column-settings';
 
 function buildSelectOptions(options, selected, placeholder = '', keepUnknown = true) {
     const value = selected || '';
@@ -1506,26 +1699,6 @@ function setActiveVersion(id) {
     } else {
         localStorage.setItem(ACTIVE_VERSION_KEY, String(id));
     }
-}
-
-function setColumnToggleState(expanded) {
-    const container = document.getElementById('columnToggle');
-    const arrow = document.querySelector('#columnToggleButton .toggle-arrow');
-    if (!container || !arrow) return;
-    if (expanded) {
-        container.classList.remove('collapsed');
-        arrow.textContent = '▼';
-    } else {
-        container.classList.add('collapsed');
-        arrow.textContent = '▶';
-    }
-}
-
-function toggleColumnToggle() {
-    const container = document.getElementById('columnToggle');
-    if (!container) return;
-    const isCollapsed = container.classList.contains('collapsed');
-    setColumnToggleState(isCollapsed);
 }
 
 function handleMovementChange(selectEl) {
@@ -1646,44 +1819,44 @@ function addShot(data = {}) {
     const extIntOptions = buildSelectOptions(EXT_INT_OPTIONS, data.extint, 'EXT/INT wählen...');
     const soundOptions = buildSelectOptions(SOUND_OPTIONS, data.sound, 'Sound wählen...');
     row.innerHTML = `
-        <td class="scene-number"><input type="text" value="${data.scene || ''}" onchange="saveState()"></td>
-        <td class="shot-letter"><input type="text" value="${data.shot || ''}" onchange="saveState()"></td>
-        <td>
+        <td data-col-key="scene" class="scene-number col-scene"><input type="text" value="${data.scene || ''}" onchange="saveState()"></td>
+        <td data-col-key="shot" class="shot-letter col-shot"><input type="text" value="${data.shot || ''}" onchange="saveState()"></td>
+        <td data-col-key="type" class="col-type">
             <select class="shot-type-select" onchange="saveState()">
                 ${shotTypeOptions}
             </select>
         </td>
-        <td>
+        <td data-col-key="movement" class="col-movement">
             <select class="movement-select" onchange="handleMovementChange(this)">
                 ${movementOptions}
             </select>
         </td>
-        <td class="gear-cell"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)">${data.gear || ''}</textarea></td>
-        <td class="location-cell"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)">${data.location || ''}</textarea></td>
-        <td>
+        <td data-col-key="gear" class="gear-cell col-gear"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)">${data.gear || ''}</textarea></td>
+        <td data-col-key="location" class="location-cell col-location"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)">${data.location || ''}</textarea></td>
+        <td data-col-key="extint" class="col-extint">
             <select onchange="saveState()">
                 ${extIntOptions}
             </select>
         </td>
-        <td>
+        <td data-col-key="sound" class="col-sound">
             <select onchange="saveState()">
                 ${soundOptions}
             </select>
         </td>
-        <td class="description-cell"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)">${data.description || ''}</textarea></td>
-        <td class="cast-cell"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)">${data.cast || ''}</textarea></td>
-        <td class="reference-cell">
+        <td data-col-key="description" class="description-cell col-description"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)">${data.description || ''}</textarea></td>
+        <td data-col-key="cast" class="cast-cell col-cast"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)">${data.cast || ''}</textarea></td>
+        <td data-col-key="reference" class="reference-cell col-reference">
             <div class="reference-upload">
                 <input type="file" accept="image/*" style="display:none" onchange="handleImageUpload(this)">
                 <button class="upload-btn" onclick="this.previousElementSibling.click()">Bild hochladen</button>
                 <div class="image-preview"></div>
             </div>
         </td>
-        <td><input type="number" min="0" value="${data.setup || ''}" onchange="calculateTime();saveState();" class="time-input"></td>
-        <td><input type="number" min="0" value="${data.shoot || ''}" onchange="calculateTime();saveState();" class="time-input"></td>
-        <td class="time-display">0m</td>
-        <td class="start-time-cell">--:--</td>
-        <td class="action-cell">
+        <td data-col-key="setup" class="col-setup"><input type="number" min="0" value="${data.setup || ''}" onchange="calculateTime();saveState();" class="time-input"></td>
+        <td data-col-key="shoot" class="col-shoot"><input type="number" min="0" value="${data.shoot || ''}" onchange="calculateTime();saveState();" class="time-input"></td>
+        <td data-col-key="total" class="time-display col-total">0m</td>
+        <td data-col-key="time" class="start-time-cell col-start">--:--</td>
+        <td data-col-key="action" class="action-cell col-action">
             <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
             <button class="action-btn duplicate-btn" onclick="duplicateRow(this)">⧉</button>
         </td>
@@ -1702,27 +1875,28 @@ function addPause() {
     const row = document.createElement('tr');
     row.className = 'pause-row';
     row.innerHTML = `
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td class="description-cell"><span class="pause-label">PAUSE</span></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td><input type="number" min="0" value="30" onchange="calculateTime();saveState();" class="time-input"></td>
-        <td class="time-display">30m</td>
-        <td class="start-time-cell">--:--</td>
-        <td class="action-cell">
+        <td data-col-key="scene"></td>
+        <td data-col-key="shot"></td>
+        <td data-col-key="type"></td>
+        <td data-col-key="movement"></td>
+        <td data-col-key="gear" class="gear-cell"></td>
+        <td data-col-key="location" class="location-cell"></td>
+        <td data-col-key="extint"></td>
+        <td data-col-key="sound"></td>
+        <td data-col-key="description" class="description-cell"><span class="pause-label">PAUSE</span></td>
+        <td data-col-key="cast" class="cast-cell"></td>
+        <td data-col-key="reference" class="reference-cell"></td>
+        <td data-col-key="setup"></td>
+        <td data-col-key="shoot"><input type="number" min="0" value="30" onchange="calculateTime();saveState();" class="time-input"></td>
+        <td data-col-key="total" class="time-display">30m</td>
+        <td data-col-key="time" class="start-time-cell">--:--</td>
+        <td data-col-key="action" class="action-cell">
             <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
         </td>
     `;
     enableRowDrag(row);
     tbody.appendChild(row);
+    if (columnSettings) applyColumnSettings(columnSettings);
     if (!isRestoringState) {
         calculateTime();
         saveState();
@@ -1734,27 +1908,28 @@ function addWrap() {
     const row = document.createElement('tr');
     row.className = 'wrap-row';
     row.innerHTML = `
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td class="description-cell"><span class="wrap-label">WRAP</span></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td class="time-display">--</td>
-        <td class="start-time-cell">--:--</td>
-        <td class="action-cell">
+        <td data-col-key="scene"></td>
+        <td data-col-key="shot"></td>
+        <td data-col-key="type"></td>
+        <td data-col-key="movement"></td>
+        <td data-col-key="gear" class="gear-cell"></td>
+        <td data-col-key="location" class="location-cell"></td>
+        <td data-col-key="extint"></td>
+        <td data-col-key="sound"></td>
+        <td data-col-key="description" class="description-cell"><span class="wrap-label">WRAP</span></td>
+        <td data-col-key="cast" class="cast-cell"></td>
+        <td data-col-key="reference" class="reference-cell"></td>
+        <td data-col-key="setup"></td>
+        <td data-col-key="shoot"></td>
+        <td data-col-key="total" class="time-display">--</td>
+        <td data-col-key="time" class="start-time-cell">--:--</td>
+        <td data-col-key="action" class="action-cell">
             <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
         </td>
     `;
     enableRowDrag(row);
     tbody.appendChild(row);
+    if (columnSettings) applyColumnSettings(columnSettings);
     if (!isRestoringState) {
         calculateTime();
         saveState();
@@ -1767,27 +1942,27 @@ function addStart(data = {}) {
     row.className = 'start-row';
     const duration = Number.isFinite(parseInt(data.duration, 10)) ? parseInt(data.duration, 10) : 0;
     row.innerHTML = `
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td class="description-cell"><span class="start-label">START</span></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td>
+        <td data-col-key="scene"></td>
+        <td data-col-key="shot"></td>
+        <td data-col-key="type"></td>
+        <td data-col-key="movement"></td>
+        <td data-col-key="gear" class="gear-cell"></td>
+        <td data-col-key="location" class="location-cell"></td>
+        <td data-col-key="extint"></td>
+        <td data-col-key="sound"></td>
+        <td data-col-key="description" class="description-cell"><span class="start-label">START</span></td>
+        <td data-col-key="cast" class="cast-cell"></td>
+        <td data-col-key="reference" class="reference-cell"></td>
+        <td data-col-key="setup"></td>
+        <td data-col-key="shoot">
             <div class="start-duration">
                 <label>Briefing/Aufbau</label>
                 <input type="number" min="0" step="1" class="time-input start-duration-input" value="${duration}" onchange="calculateTime();saveState();">
             </div>
         </td>
-        <td class="time-display">${duration ? duration + 'm' : '0m'}</td>
-        <td class="start-time-cell">--:--</td>
-        <td class="action-cell">
+        <td data-col-key="total" class="time-display">${duration ? duration + 'm' : '0m'}</td>
+        <td data-col-key="time" class="start-time-cell">--:--</td>
+        <td data-col-key="action" class="action-cell">
             <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
         </td>
     `;
@@ -1795,6 +1970,7 @@ function addStart(data = {}) {
     tbody.appendChild(row);
     const durationInput = row.querySelector('.start-duration-input');
     if (durationInput) durationInput.value = duration;
+    if (columnSettings) applyColumnSettings(columnSettings);
     if (!isRestoringState) {
         calculateTime();
         saveState();
@@ -1808,22 +1984,22 @@ function addUmbau(data = {}) {
     const duration = Number.isFinite(parseInt(data.duration, 10)) ? parseInt(data.duration, 10) : 0;
     const department = data.department || '';
     row.innerHTML = `
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td class="description-cell"><span class="umbau-label">UMBAU</span></td>
-        <td><input type="text" placeholder="Departement" class="umbau-department-input" onchange="saveState()"></td>
-        <td></td>
-        <td></td>
-        <td><input type="number" min="0" class="time-input umbau-duration-input" onchange="calculateTime();saveState();"></td>
-        <td class="time-display">0m</td>
-        <td class="start-time-cell">--:--</td>
-        <td class="action-cell">
+        <td data-col-key="scene"></td>
+        <td data-col-key="shot"></td>
+        <td data-col-key="type"></td>
+        <td data-col-key="movement"></td>
+        <td data-col-key="gear" class="gear-cell"></td>
+        <td data-col-key="location" class="location-cell"></td>
+        <td data-col-key="extint"></td>
+        <td data-col-key="sound"></td>
+        <td data-col-key="description" class="description-cell"><span class="umbau-label">UMBAU</span></td>
+        <td data-col-key="cast" class="cast-cell col-cast"><input type="text" placeholder="Departement" class="umbau-department-input" onchange="saveState()" value="${department.replace(/"/g,'&quot;')}"></td>
+        <td data-col-key="reference" class="reference-cell"></td>
+        <td data-col-key="setup"></td>
+        <td data-col-key="shoot"><input type="number" min="0" class="time-input umbau-duration-input" onchange="calculateTime();saveState();"></td>
+        <td data-col-key="total" class="time-display">0m</td>
+        <td data-col-key="time" class="start-time-cell">--:--</td>
+        <td data-col-key="action" class="action-cell">
             <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
         </td>
     `;
@@ -1833,6 +2009,7 @@ function addUmbau(data = {}) {
     if (deptInput) deptInput.value = department;
     const durationInput = row.querySelector('.umbau-duration-input');
     if (durationInput) durationInput.value = duration;
+    if (columnSettings) applyColumnSettings(columnSettings);
     if (!isRestoringState) {
         calculateTime();
         saveState();
@@ -1932,17 +2109,6 @@ function updateWrapStatus(totalMinutes) {
         status.textContent = 'OK (' + (available-totalMinutes) + 'm übrig)';
         status.className = 'wrap-status under-time';
     }
-}
-
-function toggleColumn(idx) {
-    const table = document.querySelector('.shotlist-table');
-    // toggle th
-    const th = table.tHead.rows[0].cells[idx];
-    const show = document.querySelectorAll('.column-checkbox input')[idx].checked;
-    th.style.display = show ? '' : 'none';
-    Array.from(table.tBodies[0].rows).forEach(row => {
-        if (row.cells[idx]) row.cells[idx].style.display = show ? '' : 'none';
-    });
 }
 
 function exportToExcel() {
@@ -2152,6 +2318,10 @@ window.onload = function() {
     const hasStoredState = loadState();
     updateVersionSelect();
     updateProjectSelect();
+    columnSettings = normalizeColumnSettings(loadColumnSettings());
+    saveColumnSettings(columnSettings);
+    applyColumnSettings(columnSettings);
+    updateColumnOverlayList();
     const tbody = document.getElementById('shotlistBody');
     if (tbody) {
         tbody.addEventListener('dragover', handleTableDragOver);
@@ -2162,15 +2332,9 @@ window.onload = function() {
             addShot();
         }
     }
-    // Spalten initialisieren
-    document.querySelectorAll('.column-checkbox input').forEach((cb,i) => {
-        toggleColumn(i);
-        cb.addEventListener('change', ()=>toggleColumn(i));
-    });
-    const columnToggleButton = document.getElementById('columnToggleButton');
-    if (columnToggleButton) {
-        setColumnToggleState(false);
-        columnToggleButton.addEventListener('click', toggleColumnToggle);
+    const columnButton = document.getElementById('columnMenuButton');
+    if (columnButton) {
+        columnButton.addEventListener('click', toggleColumnOverlay);
     }
     // Inputs speichern
     [

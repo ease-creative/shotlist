@@ -526,6 +526,13 @@
             border-radius: 4px;
             font-size: 13px;
             background: white;
+            box-sizing: border-box;
+        }
+
+        .shotlist-table textarea {
+            resize: none;
+            overflow: hidden;
+            min-height: 34px;
         }
         
         .shotlist-table textarea {
@@ -544,8 +551,16 @@
             font-weight: 600;
         }
         
+        .gear-cell {
+            min-width: 120px;
+        }
+
+        .location-cell {
+            min-width: 150px;
+        }
+
         .description-cell {
-            min-width: 200px;
+            min-width: 220px;
         }
         
         .cast-cell {
@@ -1142,6 +1157,12 @@ function applyColumnStates(states) {
     checkboxes.forEach((cb, idx) => toggleColumn(idx));
 }
 
+function autoGrow(el) {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = (el.scrollHeight) + 'px';
+}
+
 function captureSnapshot() {
     const tbody = document.getElementById('shotlistBody');
     const rows = Array.from(tbody ? tbody.rows : []);
@@ -1173,12 +1194,12 @@ function captureSnapshot() {
         const shotInput = row.querySelector('.shot-letter input');
         const shotTypeSelect = row.querySelector('.shot-type-select');
         const movementSelect = row.querySelector('.movement-select');
-        const gearInput = row.cells[4]?.querySelector('input');
-        const locationInput = row.cells[5]?.querySelector('input');
+        const gearInput = row.querySelector('.gear-cell textarea, .gear-cell input');
+        const locationInput = row.querySelector('.location-cell textarea, .location-cell input');
         const extintSelect = row.cells[6]?.querySelector('select');
         const soundSelect = row.cells[7]?.querySelector('select');
         const descriptionTextarea = row.querySelector('.description-cell textarea');
-        const castInput = row.querySelector('.cast-cell input');
+        const castInput = row.querySelector('.cast-cell textarea, .cast-cell input');
         const setupInput = row.cells[11]?.querySelector('input');
         const shootInput = row.cells[12]?.querySelector('input');
         return {
@@ -1284,6 +1305,7 @@ function loadSnapshot(snapshot) {
     }
     updateVersionSelect();
     calculateTime();
+    document.querySelectorAll('textarea.auto-grow').forEach(autoGrow);
     return true;
 }
 
@@ -1636,8 +1658,8 @@ function addShot(data = {}) {
                 ${movementOptions}
             </select>
         </td>
-        <td><input type="text" value="${data.gear || ''}" onchange="saveState()"></td>
-        <td><input type="text" value="${data.location || ''}" onchange="saveState()"></td>
+        <td class="gear-cell"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)">${data.gear || ''}</textarea></td>
+        <td class="location-cell"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)">${data.location || ''}</textarea></td>
         <td>
             <select onchange="saveState()">
                 ${extIntOptions}
@@ -1648,8 +1670,8 @@ function addShot(data = {}) {
                 ${soundOptions}
             </select>
         </td>
-        <td class="description-cell"><textarea onchange="saveState()">${data.description || ''}</textarea></td>
-        <td class="cast-cell"><input type="text" value="${data.cast || ''}" onchange="saveState()"></td>
+        <td class="description-cell"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)">${data.description || ''}</textarea></td>
+        <td class="cast-cell"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)">${data.cast || ''}</textarea></td>
         <td class="reference-cell">
             <div class="reference-upload">
                 <input type="file" accept="image/*" style="display:none" onchange="handleImageUpload(this)">
@@ -1668,6 +1690,7 @@ function addShot(data = {}) {
     `;
     enableRowDrag(row);
     tbody.appendChild(row);
+    row.querySelectorAll('textarea.auto-grow').forEach(autoGrow);
     if (!isRestoringState) {
         calculateTime();
         saveState();
@@ -2170,6 +2193,7 @@ window.onload = function() {
             closeVersionModal();
         }
     });
+    document.querySelectorAll('textarea.auto-grow').forEach(autoGrow);
 };
     </script>
     

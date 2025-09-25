@@ -512,18 +512,40 @@
             min-width: 150px;
         }
         
-        .delete-btn {
-            background: #dc3545;
-            color: white;
+        .action-cell {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .action-btn {
+            background: transparent;
             border: none;
-            padding: 6px 10px;
+            color: #6c757d;
+            padding: 4px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 14px;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s ease, color 0.2s ease;
         }
-        
+
+        .action-btn:hover {
+            background: rgba(108,117,125,0.12);
+            color: #495057;
+        }
+
+        .delete-btn {
+            color: #dc3545;
+        }
+
         .delete-btn:hover {
-            background: #c82333;
+            background: rgba(220,53,69,0.12);
+            color: #c82333;
         }
         
         .export-section {
@@ -555,11 +577,19 @@
         .col-setup { width: 80px; }
         .col-shoot { width: 80px; }
         .col-total { width: 80px; }
-        .col-action { width: 60px; }
-        
+        .col-start { width: 90px; text-align: center; }
+        .col-action { width: 70px; text-align: center; }
+
         .time-display {
             font-weight: 600;
             color: #4a90e2;
+        }
+
+        .start-time-cell {
+            font-weight: 600;
+            color: #343a40;
+            text-align: center;
+            white-space: nowrap;
         }
         
         .reference-cell {
@@ -617,21 +647,12 @@
         }
         
         .duplicate-btn {
-            background: #17a2b8;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            color: #17a2b8;
         }
-        
+
         .duplicate-btn:hover {
-            background: #138496;
+            background: rgba(23,162,184,0.12);
+            color: #117a8b;
         }
         
         .column-toggle {
@@ -850,7 +871,7 @@
                         </div>
                         <div class="schedule-info">
                             <label>Start:</label>
-                            <input type="time" id="startTime" value="08:00" onchange="calculateTime()">
+                            <input type="time" id="startTime" value="08:00" onchange="calculateTime()" oninput="calculateTime()">
                             <label>WRAP:</label>
                             <input type="time" id="wrapTime" value="18:00" onchange="calculateTime()">
                         </div>
@@ -993,6 +1014,7 @@
                         <th class="col-setup">Setup Time</th>
                         <th class="col-shoot">Shoot Time</th>
                         <th class="col-total">Total Time</th>
+                        <th class="col-start">Startzeit</th>
                         <th class="col-action">Action</th>
                     </tr>
                 </thead>
@@ -1201,6 +1223,25 @@ function getDragAfterElement(container, y) {
     }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
 }
 
+function parseStartMinutes() {
+    const startInput = document.getElementById('startTime');
+    if (!startInput) return null;
+    const value = startInput.value;
+    if (!value || !value.includes(':')) return null;
+    const [h, m] = value.split(':').map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
+    return (h * 60 + m) % (24 * 60);
+}
+
+function formatMinutesToHHMM(totalMinutes) {
+    const minutesInDay = 24 * 60;
+    let normalized = totalMinutes % minutesInDay;
+    if (normalized < 0) normalized += minutesInDay;
+    const hours = Math.floor(normalized / 60);
+    const minutes = normalized % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
 function updateUndoButtonVisibility(show) {
     const undoBtn = document.getElementById('undoResetButton');
     if (!undoBtn) return;
@@ -1267,9 +1308,10 @@ function addShot(data = {}) {
         <td><input type="number" min="0" value="${data.setup || ''}" onchange="calculateTime();saveState();" class="time-input"></td>
         <td><input type="number" min="0" value="${data.shoot || ''}" onchange="calculateTime();saveState();" class="time-input"></td>
         <td class="time-display">0m</td>
-        <td>
-            <button class="delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
-            <button class="duplicate-btn" onclick="duplicateRow(this)">⧉</button>
+        <td class="start-time-cell">--:--</td>
+        <td class="action-cell">
+            <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
+            <button class="action-btn duplicate-btn" onclick="duplicateRow(this)">⧉</button>
         </td>
     `;
     enableRowDrag(row);
@@ -1290,8 +1332,9 @@ function addPause() {
         <td><input type="number" min="0" value="30" onchange="calculateTime();saveState();" class="time-input"></td>
         <td></td>
         <td class="time-display">30m</td>
-        <td>
-            <button class="delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
+        <td class="start-time-cell">--:--</td>
+        <td class="action-cell">
+            <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
         </td>
     `;
     enableRowDrag(row);
@@ -1308,8 +1351,9 @@ function addWrap() {
     row.className = 'wrap-row';
     row.innerHTML = `
         <td colspan="14"><span class="wrap-label">WRAP</span></td>
-        <td>
-            <button class="delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
+        <td class="start-time-cell">--:--</td>
+        <td class="action-cell">
+            <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
         </td>
     `;
     enableRowDrag(row);
@@ -1326,8 +1370,9 @@ function addStart() {
     row.className = 'start-row';
     row.innerHTML = `
         <td colspan="14"><span class="start-label">START</span></td>
-        <td>
-            <button class="delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
+        <td class="start-time-cell">--:--</td>
+        <td class="action-cell">
+            <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
         </td>
     `;
     enableRowDrag(row);
@@ -1350,8 +1395,9 @@ function addUmbau(data = {}) {
         <td><input type="number" min="0" class="time-input umbau-duration-input" onchange="calculateTime();saveState();"></td>
         <td></td>
         <td class="time-display">0m</td>
-        <td>
-            <button class="delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
+        <td class="start-time-cell">--:--</td>
+        <td class="action-cell">
+            <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
         </td>
     `;
     enableRowDrag(row);
@@ -1370,21 +1416,24 @@ function calculateTime() {
     const tbody = document.getElementById('shotlistBody');
     if (!tbody) return;
     let total = 0;
+    const startMinutes = parseStartMinutes();
+    let currentStart = startMinutes;
     Array.from(tbody.rows).forEach(row => {
+        let rowDuration = 0;
         if (row.classList.contains('pause-row')) {
             const pause = row.querySelector('input[type="number"]');
             const v = parseInt(pause ? pause.value : 0, 10) || 0;
             const display = row.querySelector('.time-display');
             if (display) display.textContent = v + 'm';
-            total += v;
+            rowDuration = v;
         } else if (row.classList.contains('umbau-row')) {
             const input = row.querySelector('.umbau-duration-input');
             const v = parseInt(input ? input.value : 0, 10) || 0;
             const display = row.querySelector('.time-display');
             if (display) display.textContent = v + 'm';
-            total += v;
+            rowDuration = v;
         } else if (row.classList.contains('wrap-row') || row.classList.contains('start-row')) {
-            // marker rows, no duration
+            rowDuration = 0;
         } else {
             const setupCell = row.cells[11]?.querySelector('input');
             const shootCell = row.cells[12]?.querySelector('input');
@@ -1392,8 +1441,23 @@ function calculateTime() {
             const shoot = parseInt(shootCell ? shootCell.value : 0, 10) || 0;
             const sum = setup + shoot;
             if (row.cells[13]) row.cells[13].textContent = sum + 'm';
-            total += sum;
+            rowDuration = sum;
         }
+
+        const startCell = row.querySelector('.start-time-cell');
+        if (startCell) {
+            if (currentStart == null || Number.isNaN(currentStart)) {
+                startCell.textContent = '--:--';
+            } else {
+                startCell.textContent = formatMinutesToHHMM(currentStart);
+            }
+        }
+
+        if (currentStart != null && !Number.isNaN(currentStart)) {
+            currentStart += rowDuration;
+        }
+
+        total += rowDuration;
     });
     document.getElementById('totalTimeDisplay').textContent = Math.floor(total/60) + 'h ' + (total%60) + 'm';
     updateWrapStatus(total);

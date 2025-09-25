@@ -608,17 +608,40 @@
             background: #f8f9fa;
             border-bottom: 1px solid #dee2e6;
         }
-        
-        .column-toggle h4 {
-            margin: 0 0 10px 0;
+
+        .column-toggle-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            background: none;
+            border: none;
             color: #495057;
             font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 0;
         }
-        
+
+        .column-toggle-header:focus {
+            outline: 2px solid #4a90e2;
+            outline-offset: 2px;
+        }
+
         .column-checkboxes {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 10px;
+            margin-top: 12px;
+        }
+
+        .column-toggle.collapsed .column-checkboxes {
+            display: none;
+        }
+        
+        .toggle-arrow {
+            font-size: 16px;
+            line-height: 1;
         }
         
         .column-checkbox {
@@ -737,7 +760,7 @@
     <div class="container">
         <div class="header">
             <div class="title-section">
-                <h1>SHOT LIST — TEST</h1>
+                <h1>SHOTLIST</h1>
                 <input type="text" id="clientName" placeholder="Client Name" class="client-input">
             </div>
             <div class="time-tracking">
@@ -763,32 +786,35 @@
         <div class="project-info">
             <div class="info-group">
                 <label>Production Title:</label>
-                <input type="text" id="productionTitle" placeholder="Portrait" value="Portrait">
+                <input type="text" id="productionTitle" placeholder="Portrait" value="">
             </div>
             <div class="info-group">
                 <label>Location:</label>
-                <input type="text" id="location" placeholder="Toronto, ON" value="Toronto, ON">
+                <input type="text" id="location" placeholder="Toronto, ON" value="">
             </div>
             <div class="info-group">
                 <label>Director:</label>
-                <input type="text" id="director" placeholder="D.E Wayne" value="D.E Wayne">
+                <input type="text" id="director" placeholder="D.E Wayne" value="">
             </div>
             <div class="info-group">
                 <label>Date:</label>
-                <input type="text" id="date" placeholder="8/28/22" value="8/28/22">
+                <input type="text" id="date" placeholder="8/28/22" value="">
             </div>
             <div class="info-group">
                 <label>Cinematographer:</label>
-                <input type="text" id="cinematographer" placeholder="Name des DOP">
+                <input type="text" id="cinematographer" placeholder="Name des DOP" value="">
             </div>
             <div class="info-group">
                 <label>Agency:</label>
-                <input type="text" id="agency" placeholder="Agentur/Produktionsfirma">
+                <input type="text" id="agency" placeholder="Agentur/Produktionsfirma" value="">
             </div>
         </div>
         
-        <div class="column-toggle">
-            <h4>Spalten anzeigen/ausblenden:</h4>
+        <div class="column-toggle collapsed" id="columnToggle">
+            <button type="button" class="column-toggle-header" id="columnToggleButton">
+                <span class="toggle-arrow" aria-hidden="true">▶</span>
+                <span>Spalten anzeigen/ausblenden</span>
+            </button>
             <div class="column-checkboxes">
                 <div class="column-checkbox">
                     <input type="checkbox" id="col-scene" checked onchange="toggleColumn(0)">
@@ -931,8 +957,12 @@ const SHOT_TYPE_OPTIONS = [
     'WS (Wide Shot)','ES (Establishing Shot)'
 ];
 
+const DRONE_SHOT_TYPE_OPTIONS = [
+    'FPV','Classic'
+];
+
 const MOVEMENT_OPTIONS = [
-    'Zoom','Stationary','Pan','Tilt','Dolly','Track','Handheld','Crane','Pedestal'
+    'Zoom','Stationary','Pan','Tilt','Dolly','Track','Handheld','Drone','Crane','Pedestal'
 ];
 
 const EXT_INT_OPTIONS = [
@@ -945,7 +975,7 @@ const SOUND_OPTIONS = [
 
 let isRestoringState = false;
 
-function buildSelectOptions(options, selected, placeholder = '') {
+function buildSelectOptions(options, selected, placeholder = '', keepUnknown = true) {
     const value = selected || '';
     const unique = new Set(options);
     const entries = [];
@@ -955,7 +985,7 @@ function buildSelectOptions(options, selected, placeholder = '') {
         entries.push({value:'', label:''});
     }
     unique.forEach(opt => entries.push({value:opt, label:opt}));
-    if (value && !unique.has(value)) {
+    if (keepUnknown && value && !unique.has(value)) {
         entries.push({value, label:value});
     }
     return entries.map(opt => `<option value="${opt.value}" ${opt.value===value ? 'selected' : ''}>${opt.label}</option>`).join('');
@@ -997,32 +1027,82 @@ function setActiveVersion(id) {
     }
 }
 
+function setColumnToggleState(expanded) {
+    const container = document.getElementById('columnToggle');
+    const arrow = document.querySelector('#columnToggleButton .toggle-arrow');
+    if (!container || !arrow) return;
+    if (expanded) {
+        container.classList.remove('collapsed');
+        arrow.textContent = '▼';
+    } else {
+        container.classList.add('collapsed');
+        arrow.textContent = '▶';
+    }
+}
+
+function toggleColumnToggle() {
+    const container = document.getElementById('columnToggle');
+    if (!container) return;
+    const isCollapsed = container.classList.contains('collapsed');
+    setColumnToggleState(isCollapsed);
+}
+
+function handleMovementChange(selectEl) {
+    const row = selectEl ? selectEl.closest('tr') : null;
+    const movementValue = selectEl ? selectEl.value : '';
+    if (row) {
+        const shotTypeSelect = row.querySelector('.shot-type-select');
+        if (shotTypeSelect) {
+            const options = movementValue === 'Drone' ? DRONE_SHOT_TYPE_OPTIONS : SHOT_TYPE_OPTIONS;
+            const currentValue = shotTypeSelect.value;
+            const keepUnknown = movementValue !== 'Drone';
+            const nextValue = options.includes(currentValue) ? currentValue : '';
+            shotTypeSelect.innerHTML = buildSelectOptions(options, nextValue, 'Shot Type wählen...', keepUnknown);
+            if (nextValue) {
+                shotTypeSelect.value = nextValue;
+            }
+        }
+    }
+    saveState();
+}
+
 function addShot(data = {}) {
     const tbody = document.getElementById('shotlistBody');
     const row = document.createElement('tr');
+    const isDroneMovement = data.movement === 'Drone';
+    const shotTypeValue = isDroneMovement && !DRONE_SHOT_TYPE_OPTIONS.includes(data.type) ? '' : (data.type || '');
+    const shotTypeOptions = buildSelectOptions(
+        isDroneMovement ? DRONE_SHOT_TYPE_OPTIONS : SHOT_TYPE_OPTIONS,
+        shotTypeValue,
+        'Shot Type wählen...',
+        !isDroneMovement
+    );
+    const movementOptions = buildSelectOptions(MOVEMENT_OPTIONS, data.movement, 'Movement wählen...');
+    const extIntOptions = buildSelectOptions(EXT_INT_OPTIONS, data.extint, 'EXT/INT wählen...');
+    const soundOptions = buildSelectOptions(SOUND_OPTIONS, data.sound, 'Sound wählen...');
     row.innerHTML = `
         <td class="scene-number"><input type="text" value="${data.scene || ''}" onchange="saveState()"></td>
         <td class="shot-letter"><input type="text" value="${data.shot || ''}" onchange="saveState()"></td>
         <td>
-            <select onchange="saveState()">
-                ${buildSelectOptions(SHOT_TYPE_OPTIONS, data.type, 'Shot Type wählen...')}
+            <select class="shot-type-select" onchange="saveState()">
+                ${shotTypeOptions}
             </select>
         </td>
         <td>
-            <select onchange="saveState()">
-                ${buildSelectOptions(MOVEMENT_OPTIONS, data.movement, 'Movement wählen...')}
+            <select class="movement-select" onchange="handleMovementChange(this)">
+                ${movementOptions}
             </select>
         </td>
         <td><input type="text" value="${data.gear || ''}" onchange="saveState()"></td>
         <td><input type="text" value="${data.location || ''}" onchange="saveState()"></td>
         <td>
             <select onchange="saveState()">
-                ${buildSelectOptions(EXT_INT_OPTIONS, data.extint, 'EXT/INT wählen...')}
+                ${extIntOptions}
             </select>
         </td>
         <td>
             <select onchange="saveState()">
-                ${buildSelectOptions(SOUND_OPTIONS, data.sound, 'Sound wählen...')}
+                ${soundOptions}
             </select>
         </td>
         <td class="description-cell"><textarea onchange="saveState()">${data.description || ''}</textarea></td>
@@ -1287,10 +1367,10 @@ function saveState() {
 
 function loadState() {
     const state = localStorage.getItem(CURRENT_STATE_KEY);
-    if (!state) return;
+    if (!state) return false;
     const {data,meta} = JSON.parse(state);
     const body = document.getElementById('shotlistBody');
-    if (!body) return;
+    if (!body) return false;
     isRestoringState = true;
     try {
         body.innerHTML = '';
@@ -1324,6 +1404,7 @@ function loadState() {
         if (document.getElementById(k)) document.getElementById(k).value = meta[k];
     }
     calculateTime();
+    return true;
 }
 
 function openSaveVersionModal() {
@@ -1451,13 +1532,24 @@ function showNotification(msg, error=false) {
 
 // Initialisierung
 window.onload = function() {
-    loadState();
+    const hasStoredState = loadState();
     updateVersionSelect();
+    const tbody = document.getElementById('shotlistBody');
+    if (!hasStoredState && tbody && tbody.children.length === 0) {
+        for (let i = 0; i < 3; i++) {
+            addShot();
+        }
+    }
     // Spalten initialisieren
     document.querySelectorAll('.column-checkbox input').forEach((cb,i) => {
         toggleColumn(i);
         cb.addEventListener('change', ()=>toggleColumn(i));
     });
+    const columnToggleButton = document.getElementById('columnToggleButton');
+    if (columnToggleButton) {
+        setColumnToggleState(false);
+        columnToggleButton.addEventListener('click', toggleColumnToggle);
+    }
     // Inputs speichern
     [
         'clientName','productionTitle','location','director','date','cinematographer','agency','startTime','wrapTime'

@@ -792,25 +792,6 @@
             display: block;
         }
 
-        .start-info {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            justify-content: flex-start;
-        }
-
-        .start-info-label {
-            font-weight: 600;
-            color: #155724;
-            white-space: nowrap;
-        }
-
-        .start-duration-input {
-            width: 85px;
-            font-size: 15px;
-            padding: 6px 10px;
-        }
-
         .umbau-row {
             background: linear-gradient(135deg, #ffe8cc 0%, #ffd8a8 100%) !important;
             border-left: 5px solid #fd7e14 !important;
@@ -846,6 +827,29 @@
             font-weight: bold;
             text-align: center;
             display: block;
+        }
+
+        /* START row: Label + Input nebeneinander */
+        .shotlist-table .start-row .start-duration {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: flex-start;
+        }
+
+        /* Dauer-Input halb so breit wie das Shoot-Time Feld */
+        .shotlist-table .start-row .start-duration-input {
+            width: 50% !important;
+            min-width: 100px;
+            max-width: 160px;
+            font-size: 15px;
+            padding: 6px 8px;
+        }
+
+        /* Chrome/Safari Spinner fix */
+        .shotlist-table .start-row .start-duration-input::-webkit-outer-spin-button,
+        .shotlist-table .start-row .start-duration-input::-webkit-inner-spin-button {
+            margin: 0;
         }
         
         @media (max-width: 1200px) {
@@ -1413,8 +1417,8 @@ function addStart(data = {}) {
         <td></td>
         <td></td>
         <td>
-            <div class="start-info">
-                <span class="start-info-label">Briefing/Aufbau</span>
+            <div class="start-duration">
+                <label>Briefing/Aufbau</label>
                 <input type="number" min="0" class="time-input start-duration-input" value="${duration}" onchange="calculateTime();saveState();">
             </div>
         </td>

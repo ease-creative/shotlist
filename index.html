@@ -1001,7 +1001,7 @@
                         <th class="col-setup">Setup Time</th>
                         <th class="col-shoot">Shoot Time</th>
                         <th class="col-total">Total Time</th>
-                        <th class="col-start">Startzeit</th>
+                        <th class="col-start">Uhrzeit</th>
                         <th class="col-action">Action</th>
                     </tr>
                 </thead>
@@ -1478,15 +1478,25 @@ function calculateTime() {
         }
 
         const startCell = row.querySelector('.start-time-cell');
+        const startValid = currentStart != null && !Number.isNaN(currentStart);
         if (startCell) {
-            if (currentStart == null || Number.isNaN(currentStart)) {
+            if (!startValid) {
                 startCell.textContent = '--:--';
             } else {
-                startCell.textContent = formatMinutesToHHMM(currentStart);
+                const startStr = formatMinutesToHHMM(currentStart);
+                const endMinutes = currentStart + rowDuration;
+                const endStr = formatMinutesToHHMM(endMinutes);
+                if (row.classList.contains('wrap-row')) {
+                    startCell.textContent = startStr;
+                } else if (rowDuration > 0) {
+                    startCell.textContent = `${startStr} – ${endStr}`;
+                } else {
+                    startCell.textContent = `${startStr} – ${endStr}`;
+                }
             }
         }
 
-        if (currentStart != null && !Number.isNaN(currentStart)) {
+        if (startValid) {
             currentStart += rowDuration;
         }
 

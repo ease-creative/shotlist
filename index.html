@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Shotlist Template</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+            font-size: 14px;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .total-time {
+            font-size: 1.1rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+        }
+        
+        .project-info {
+            padding: 25px 30px;
+            background: #f8f9fa;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .info-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .info-group label {
+            font-weight: 600;
+            color: #495057;
+            min-width: 120px;
+        }
+        
+        .info-group input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .info-group input:focus {
+            outline: none;
+            border-color: #4a90e2;
+        }
+        
+        .controls {
+            padding: 20px 30px;
+            background: white;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(74, 144, 226, 0.4);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            max-height: 70vh;
+        }
+        
+        .shotlist-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        
+        .shotlist-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .shotlist-table th {
+            background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+            color: white;
+            padding: 12px 8px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 13px;
+            white-space: nowrap;
+            border-right: 1px solid #6c757d;
+        }
+        
+        .shotlist-table th:last-child {
+            border-right: none;
+        }
+        
+        .shotlist-table td {
+            padding: 8px;
+            border-bottom: 1px solid #dee2e6;
+            border-right: 1px solid #dee2e6;
+            vertical-align: top;
+            background: white;
+        }
+        
+        .shotlist-table td:last-child {
+            border-right: none;
+        }
+        
+        .shotlist-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .shotlist-table tbody tr:hover td {
+            background: #f8f9fa;
+        }
+        
+        .shotlist-table input, .shotlist-table select, .shotlist-table textarea {
+            width: 100%;
+            border: 1px solid #ced4da;
+            padding: 6px 8px;
+            border-radius: 4px;
+            font-size: 13px;
+            background: white;
+        }
+        
+        .shotlist-table textarea {
+            resize: vertical;
+            min-height: 60px;
+            font-family: inherit;
+        }
+        
+        .scene-number, .shot-letter, .time-input {
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .scene-number input, .shot-letter input {
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .description-cell {
+            min-width: 200px;
+        }
+        
+        .cast-cell {
+            min-width: 150px;
+        }
+        
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .delete-btn:hover {
+            background: #c82333;
+        }
+        
+        .export-section {
+            padding: 25px 30px;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            text-align: center;
+        }
+        
+        .export-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        /* Spaltenbreiten */
+        .col-scene { width: 80px; }
+        .col-shot { width: 60px; }
+        .col-type { width: 80px; }
+        .col-movement { width: 100px; }
+        .col-gear { width: 100px; }
+        .col-location { width: 120px; }
+        .col-ext-int { width: 80px; }
+        .col-sound { width: 70px; }
+        .col-description { width: 250px; }
+        .col-cast { width: 150px; }
+        .col-setup { width: 80px; }
+        .col-shoot { width: 80px; }
+        .col-total { width: 80px; }
+        .col-action { width: 60px; }
+        
+        .time-display {
+            font-weight: 600;
+            color: #4a90e2;
+        }
+        
+        @media (max-width: 1200px) {
+            .project-info {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                margin: 0 10px;
+            }
+            
+            .header, .project-info, .controls, .export-section {
+                padding-left: 20px;
+                padding-right: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📹 SHOT LIST</h1>
+            <div class="total-time">
+                Total Time (minutes): <span id="totalTimeDisplay">0</span>
+            </div>
+        </div>
+        
+        <div class="project-info">
+            <div class="info-group">
+                <label>Production Title:</label>
+                <input type="text" id="productionTitle" placeholder="Portrait" value="Portrait">
+            </div>
+            <div class="info-group">
+                <label>Location:</label>
+                <input type="text" id="location" placeholder="Toronto, ON" value="Toronto, ON">
+            </div>
+            <div class="info-group">
+                <label>Director:</label>
+                <input type="text" id="director" placeholder="D.E Wayne" value="D.E Wayne">
+            </div>
+            <div class="info-group">
+                <label>Date:</label>
+                <input type="text" id="date" placeholder="8/28/22" value="8/28/22">
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn" onclick="addShot()">+ Shot hinzufügen</button>
+            <button class="btn btn-success" onclick="loadSampleData()">Beispieldaten laden</button>
+            <button class="btn btn-danger" onclick="clearAll()">Alle löschen</button>
+        </div>
+        
+        <div class="table-container">
+            <table class="shotlist-table">
+                <thead>
+                    <tr>
+                        <th class="col-scene">Scene #</th>
+                        <th class="col-shot">Shot</th>
+                        <th class="col-type">Shot Type</th>
+                        <th class="col-movement">Movement</th>
+                        <th class="col-gear">Gear</th>
+                        <th class="col-location">Location</th>
+                        <th class="col-ext-int">EXT / INT</th>
+                        <th class="col-sound">Sound</th>
+                        <th class="col-description">Shot Description</th>
+                        <th class="col-cast">Cast</th>
+                        <th class="col-setup">Setup Time</th>
+                        <th class="col-shoot">Shoot Time</th>
+                        <th class="col-total">Total Time</th>
+                        <th class="col-action">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="shotlistBody">
+                    <!-- Shots werden hier dynamisch hinzugefügt -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="export-section">
+            <h3>Export & Speichern</h3>
+            <div class="export-buttons">
+                <button class="btn btn-success" onclick="exportToExcel()">📊 Als Excel exportieren</button>
+                <button class="btn btn-success" onclick="exportToPDF()">📄 Als PDF exportieren</button>
+                <button class="btn" onclick="printShotlist()">🖨️ Drucken</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        let shotCount = 0;
+        
+        const shotTypes = ['POV', 'LS', 'MLS', 'MS', 'MCU', 'CU', 'ECU', 'WS', 'ES'];
+        const movements = ['Zoom', 'Stationary', 'Pan', 'Tilt', 'Dolly', 'Track', 'Handheld', 'Crane', 'Pedestal'];
+        const extInt = ['EXT DAY', 'EXT NIGHT', 'INT DAY', 'INT NIGHT'];
+        const soundOptions = ['Yes', 'No', 'Music', 'SFX', 'VO'];
+
+        function addShot() {
+            const tbody = document.getElementById('shotlistBody');
+            const row = document.createElement('tr');
+            
+            row.innerHTML = `
+                <td class="scene-number"><input type="text" placeholder="Intro" onchange="calculateTime()"></td>
+                <td class="shot-letter"><input type="text" placeholder="A" onchange="calculateTime()"></td>
+                <td>
+                    <select onchange="calculateTime()">
+                        <option value="">Select...</option>
+                        ${shotTypes.map(type => `<option value="${type}">${type}</option>`).join('')}
+                    </select>
+                </td>
+                <td>
+                    <select onchange="calculateTime()">
+                        <option value="">Select...</option>
+                        ${movements.map(movement => `<option value="${movement}">${movement}</option>`).join('')}
+                    </select>
+                </td>
+                <td><input type="text" placeholder="Camera, Lens..." onchange="calculateTime()"></td>
+                <td><input type="text" placeholder="Black Screen" onchange="calculateTime()"></td>
+                <td>
+                    <select onchange="calculateTime()">
+                        <option value="">Select...</option>
+                        ${extInt.map(option => `<option value="${option}">${option}</option>`).join('')}
+                    </select>
+                </td>
+                <td>
+                    <select onchange="calculateTime()">
+                        <option value="">Select...</option>
+                        ${soundOptions.map(option => `<option value="${option}">${option}</option>`).join('')}
+                    </select>
+                </td>
+                <td class="description-cell">
+                    <textarea placeholder="Detailed shot description..." onchange="calculateTime()"></textarea>
+                </td>
+                <td class="cast-cell"><input type="text" placeholder="Portrait Frame" onchange="calculateTime()"></td>
+                <td class="time-input">
+                    <input type="number" placeholder="5" min="0" step="0.5" onchange="calculateTime()">
+                </td>
+                <td class="time-input">
+                    <input type="number" placeholder="10" min="0" step="0.5" onchange="calculateTime()">
+                </td>
+                <td class="time-input time-display">
+                    <span>0</span>
+                </td>
+                <td><button class="delete-btn" onclick="deleteShot(this)">×</button></td>
+            `;
+            
+            tbody.appendChild(row);
+            shotCount++;
+            calculateTime();
+        }
+        
+        function deleteShot(button) {
+            const row = button.closest('tr');
+            row.remove();
+            shotCount--;
+            calculateTime();
+        }
+        
+        function calculateTime() {
+            let totalMinutes = 0;
+            
+            const rows = document.querySelectorAll('#shotlistBody tr');
+            rows.forEach(row => {
+                const setupInput = row.querySelector('.time-input input[placeholder="5"]');
+                const shootInput = row.querySelector('.time-input input[placeholder="10"]');
+                const totalCell = row.querySelector('.time-display span');
+                
+                const setupTime = parseFloat(setupInput.value) || 0;
+                const shootTime = parseFloat(shootInput.value) || 0;
+                const rowTotal = setupTime + shootTime;
+                
+                totalCell.textContent = rowTotal.toFixed(1);
+                totalMinutes += rowTotal;
+            });
+            
+            document.getElementById('totalTimeDisplay').textContent = totalMinutes.toFixed(1);
+        }
+        
+        function clearAll() {
+            if (confirm('Alle Einträge löschen?')) {
+                document.getElementById('shotlistBody').innerHTML = '';
+                shotCount = 0;
+                calculateTime();
+            }
+        }
+        
+        function loadSampleData() {
+            clearAll();
+            
+            const sampleShots = [
+                {
+                    scene: 'Intro', shot: 'A', type: 'POV', movement: 'Zoom', gear: '', location: 'Black Screen',
+                    extInt: '', sound: 'Yes', description: 'Happy memories mixed with unhappy memories fill a portrait frame as we zoom in slowly to a black screen',
+                    cast: 'Portrait Frame', setup: '2', shoot: '8'
+                },
+                {
+                    scene: '1', shot: 'A', type: 'LS', movement: 'Stationary', gear: '', location: 'Apartment',
+                    extInt: 'INT DAY', sound: 'Yes', description: 'Leanna and Thomas are playing catch. The phone rings. Leanna is duped into talking. A voice is heard from the speaker',
+                    cast: 'Leanna, Thomas', setup: '3', shoot: '12'
+                },
+                {
+                    scene: '1', shot: 'B', type: 'MLS', movement: 'Stationary', gear: '', location: 'Apartment',
+                    extInt: 'INT DAY', sound: 'Yes', description: 'Leanna explains the call to Thomas. Thomas misspeaks, sending Leanna off into a fit',
+                    cast: 'Leanna, Thomas', setup: '2', shoot: '8'
+                },
+                {
+                    scene: '1', shot: 'b', type: 'CU', movement: 'Stationary', gear: '', location: 'Apartment',
+                    extInt: 'INT DAY', sound: 'Yes', description: "Leanna's face as she overreacts",
+                    cast: 'Leanna', setup: '1', shoot: '5'
+                },
+                {
+                    scene: '1', shot: 'B', type: 'MLS', movement: 'Stationary', gear: '', location: 'Apartment',
+                    extInt: 'INT DAY', sound: 'Yes', description: 'Thomas says his piece',
+                    cast: 'Leanna, Thomas', setup: '1', shoot: '4'
+                },
+                {
+                    scene: '1', shot: 'D', type: 'MLS', movement: 'Pan', gear: '', location: 'Apartment',
+                    extInt: 'INT DAY', sound: 'Yes', description: 'Leanna scoops his keys. She tosses them at his chest, kicking him out',
+                    cast: 'Leanna, Thomas', setup: '3', shoot: '10'
+                },
+                {
+                    scene: '1', shot: 'E', type: 'MS', movement: 'Pedestal', gear: '', location: 'Apartment',
+                    extInt: 'INT DAY', sound: 'Yes', description: 'Leanna drops to the floor. She thinks as she sits on teh floor after having locked it',
+                    cast: 'Leanna', setup: '2', shoot: '8'
+                },
+                {
+                    scene: '2', shot: 'A', type: 'LS', movement: 'Stationary', gear: '', location: "Wayne's Apartment",
+                    extInt: 'INT DAY', sound: 'No', description: 'Tracy answers. Wayne demands the phone, swiping at it. Tracy evades',
+                    cast: 'Wayne, Tracy, Hailey', setup: '4', shoot: '15'
+                }
+            ];
+            
+            sampleShots.forEach((shot) => {
+                addShot();
+                const lastRow = document.querySelector('#shotlistBody tr:last-child');
+                const inputs = lastRow.querySelectorAll('input, select, textarea');
+                
+                inputs[0].value = shot.scene;
+                inputs[1].value = shot.shot;
+                inputs[2].value = shot.type;
+                inputs[3].value = shot.movement;
+                inputs[4].value = shot.gear;
+                inputs[5].value = shot.location;
+                inputs[6].value = shot.extInt;
+                inputs[7].value = shot.sound;
+                inputs[8].value = shot.description;
+                inputs[9].value = shot.cast;
+                inputs[10].value = shot.setup;
+                inputs[11].value = shot.shoot;
+            });
+            
+            calculateTime();
+        }
+        
+        function exportToExcel() {
+            const data = [];
+            
+            // Header mit Projektinfo
+            data.push(['SHOT LIST', '', '', '', '', '', '', '', '', '', '', '', 'Total Time (minutes): ' + document.getElementById('totalTimeDisplay').textContent]);
+            data.push([]);
+            data.push([
+                'Production Title: ' + document.getElementById('productionTitle').value,
+                '', '', '', '', '', '', '', '',
+                'Location: ' + document.getElementById('location').value
+            ]);
+            data.push([
+                'Director: ' + document.getElementById('director').value,
+                '', '', '', '', '', '', '', '',
+                'Date: ' + document.getElementById('date').value
+            ]);
+            data.push([]);
+            
+            // Tabellen-Header
+            data.push([
+                'Scene #', 'Shot', 'Shot Type', 'Movement', 'Gear', 'Location',
+                'EXT / INT', 'Sound', 'Shot Description', 'Cast',
+                'Setup Time', 'Shoot Time', 'Total Time'
+            ]);
+            
+            // Daten aus der Tabelle
+            const rows = document.querySelectorAll('#shotlistBody tr');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                const rowData = [];
+                
+                cells.forEach((cell, index) => {
+                    if (index < cells.length - 1) { // Letzte Spalte (Löschen-Button) überspringen
+                        if (index === 12) { // Total Time Spalte
+                            rowData.push(cell.querySelector('span').textContent);
+                        } else {
+                            const input = cell.querySelector('input, select, textarea');
+                            rowData.push(input ? input.value : cell.textContent);
+                        }
+                    }
+                });
+                
+                data.push(rowData);
+            });
+            
+            // Excel erstellen
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            
+            // Spaltenbreiten
+            ws['!cols'] = [
+                {wch: 10}, {wch: 6}, {wch: 10}, {wch: 12}, {wch: 15}, {wch: 15},
+                {wch: 10}, {wch: 8}, {wch: 35}, {wch: 20}, {wch: 10}, {wch: 10}, {wch: 10}
+            ];
+            
+            XLSX.utils.book_append_sheet(wb, ws, 'Shotlist');
+            XLSX.writeFile(wb, `${document.getElementById('productionTitle').value}_Shotlist.xlsx`);
+        }
+        
+        function exportToPDF() {
+            window.print();
+        }
+        
+        function printShotlist() {
+            window.print();
+        }
+        
+        // Initial Setup
+        document.addEventListener('DOMContentLoaded', function() {
+            addShot();
+            addShot();
+            addShot();
+        });
+    </script>
+    
+    <style media="print">
+        body { background: white; font-size: 12px; }
+        .container { box-shadow: none; }
+        .controls, .export-section { display: none; }
+        .header { background: #4a90e2 !important; }
+        .shotlist-table th { background: #495057 !important; }
+        .table-container { max-height: none; }
+    </style>
+</body>
+</html>

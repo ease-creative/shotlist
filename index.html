@@ -270,22 +270,42 @@
             width: 100%;
             height: 100%;
             background: rgba(0,0,0,0.5);
+            padding: 40px 20px;
         }
-        
+
+        .version-modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
         .version-modal-content {
             background: white;
-            margin: 10% auto;
             padding: 30px;
             border-radius: 12px;
             width: 500px;
-            max-width: 90%;
+            max-width: 520px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            transform: translateY(20px);
+            opacity: 0;
+            transition: all 0.2s ease;
+        }
+
+        .version-modal.active .version-modal-content {
+            transform: translateY(0);
+            opacity: 1;
         }
         
         .version-modal h3 {
             margin: 0 0 20px 0;
             color: #333;
             font-size: 1.4rem;
+        }
+
+        .modal-description {
+            margin: 0 0 16px 0;
+            color: #495057;
+            font-size: 0.95rem;
         }
         
         .version-input {
@@ -882,33 +902,89 @@
             </div>
         </div>
     </div>
+    
+    <div id="versionModal" class="version-modal" role="dialog" aria-modal="true" aria-labelledby="versionModalTitle">
+        <div class="version-modal-content">
+            <form id="versionForm">
+                <h3 id="versionModalTitle">Version speichern</h3>
+                <p class="modal-description">Gib einen eindeutigen Namen für die aktuelle Shotlist-Version ein.</p>
+                <input type="text" id="versionNameInput" class="version-input" placeholder="z.B. Regie-Freigabe">
+                <div class="modal-buttons">
+                    <button type="button" class="modal-btn secondary" id="versionCancelBtn">Abbrechen</button>
+                    <button type="submit" class="modal-btn primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Neuer Script-Block -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script>
 // Shotlist Funktionen
+const VERSION_STORAGE_KEY = 'shotlist-versions';
+const CURRENT_STATE_KEY = 'shotlist-current';
+const ACTIVE_VERSION_KEY = 'shotlist-active-version';
+
+const SHOT_TYPE_OPTIONS = [
+    'POV','LS (Long Shot)','MLS (Medium Long Shot)','MS (Medium Shot)',
+    'MCU (Medium Close-Up)','CU (Close-Up)','ECU (Extreme Close-Up)',
+    'WS (Wide Shot)','ES (Establishing Shot)'
+];
+
+const MOVEMENT_OPTIONS = [
+    'Zoom','Stationary','Pan','Tilt','Dolly','Track','Handheld','Crane','Pedestal'
+];
+
+const EXT_INT_OPTIONS = [
+    'EXT DAY','EXT NIGHT','INT DAY','INT NIGHT'
+];
+
+const SOUND_OPTIONS = [
+    'Yes','No','Music','SFX (Sound Effects)','VO (Voice Over)'
+];
+
+function buildSelectOptions(options, selected, placeholder = '') {
+    const value = selected || '';
+    const unique = new Set(options);
+    const entries = [];
+    if (placeholder) {
+        entries.push({value:'', label:placeholder});
+    } else {
+        entries.push({value:'', label:''});
+    }
+    unique.forEach(opt => entries.push({value:opt, label:opt}));
+    if (value && !unique.has(value)) {
+        entries.push({value, label:value});
+    }
+    return entries.map(opt => `<option value="${opt.value}" ${opt.value===value ? 'selected' : ''}>${opt.label}</option>`).join('');
+}
+
 function addShot(data = {}) {
     const tbody = document.getElementById('shotlistBody');
     const row = document.createElement('tr');
     row.innerHTML = `
         <td class="scene-number"><input type="text" value="${data.scene || ''}" onchange="saveState()"></td>
         <td class="shot-letter"><input type="text" value="${data.shot || ''}" onchange="saveState()"></td>
-        <td><input type="text" value="${data.type || ''}" onchange="saveState()"></td>
-        <td><input type="text" value="${data.movement || ''}" onchange="saveState()"></td>
-        <td><input type="text" value="${data.gear || ''}" onchange="saveState()"></td>
-        <td><input type="text" value="${data.location || ''}" onchange="saveState()"></td>
         <td>
             <select onchange="saveState()">
-                <option value="" ${!data.extint ? 'selected' : ''}></option>
-                <option value="EXT" ${data.extint==='EXT'?'selected':''}>EXT</option>
-                <option value="INT" ${data.extint==='INT'?'selected':''}>INT</option>
+                ${buildSelectOptions(SHOT_TYPE_OPTIONS, data.type, 'Shot Type wählen...')}
             </select>
         </td>
         <td>
             <select onchange="saveState()">
-                <option value="" ${!data.sound ? 'selected' : ''}></option>
-                <option value="Yes" ${data.sound==='Yes'?'selected':''}>Yes</option>
-                <option value="No" ${data.sound==='No'?'selected':''}>No</option>
+                ${buildSelectOptions(MOVEMENT_OPTIONS, data.movement, 'Movement wählen...')}
+            </select>
+        </td>
+        <td><input type="text" value="${data.gear || ''}" onchange="saveState()"></td>
+        <td><input type="text" value="${data.location || ''}" onchange="saveState()"></td>
+        <td>
+            <select onchange="saveState()">
+                ${buildSelectOptions(EXT_INT_OPTIONS, data.extint, 'EXT/INT wählen...')}
+            </select>
+        </td>
+        <td>
+            <select onchange="saveState()">
+                ${buildSelectOptions(SOUND_OPTIONS, data.sound, 'Sound wählen...')}
             </select>
         </td>
         <td class="description-cell"><textarea onchange="saveState()">${data.description || ''}</textarea></td>
@@ -1074,10 +1150,49 @@ function handleImageUpload(input) {
 
 function loadSampleData() {
     clearAll();
-    addShot({scene:"1",shot:"A",type:"Wide",movement:"Static",gear:"Tripod",location:"Street",extint:"EXT",sound:"Yes",description:"Establishing shot of the street.",cast:"Anna",setup:10,shoot:8});
-    addShot({scene:"1",shot:"B",type:"Close",movement:"Handheld",gear:"Gimbal",location:"Street",extint:"EXT",sound:"No",description:"Closeup of Anna.",cast:"Anna",setup:8,shoot:5});
+    addShot({
+        scene:"1",
+        shot:"A",
+        type:"ES (Establishing Shot)",
+        movement:"Stationary",
+        gear:"Tripod",
+        location:"Street",
+        extint:"EXT DAY",
+        sound:"Yes",
+        description:"Establishing shot of the street.",
+        cast:"Anna",
+        setup:10,
+        shoot:8
+    });
+    addShot({
+        scene:"1",
+        shot:"B",
+        type:"CU (Close-Up)",
+        movement:"Handheld",
+        gear:"Gimbal",
+        location:"Street",
+        extint:"EXT DAY",
+        sound:"No",
+        description:"Closeup of Anna.",
+        cast:"Anna",
+        setup:8,
+        shoot:5
+    });
     addPause();
-    addShot({scene:"2",shot:"A",type:"Medium",movement:"Tracking",gear:"Dolly",location:"Cafe",extint:"INT",sound:"Yes",description:"Tracking shot inside cafe.",cast:"Anna, Ben",setup:12,shoot:10});
+    addShot({
+        scene:"2",
+        shot:"A",
+        type:"MS (Medium Shot)",
+        movement:"Track",
+        gear:"Dolly",
+        location:"Cafe",
+        extint:"INT DAY",
+        sound:"Music",
+        description:"Tracking shot inside cafe.",
+        cast:"Anna, Ben",
+        setup:12,
+        shoot:10
+    });
     addWrap();
 }
 
@@ -1125,11 +1240,11 @@ function saveState() {
         start: document.getElementById('startTime').value,
         wrap: document.getElementById('wrapTime').value
     };
-    localStorage.setItem('shotlist-current', JSON.stringify({data,meta}));
+    localStorage.setItem(CURRENT_STATE_KEY, JSON.stringify({data,meta}));
 }
 
 function loadState() {
-    const state = localStorage.getItem('shotlist-current');
+    const state = localStorage.getItem(CURRENT_STATE_KEY);
     if (!state) return;
     const {data,meta} = JSON.parse(state);
     document.getElementById('shotlistBody').innerHTML = '';

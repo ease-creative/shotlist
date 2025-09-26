@@ -896,8 +896,8 @@
             color: #6c757d;
             font-size: 0.78rem;
             font-weight: 500;
-            width: 60px;
-            max-width: 140px;
+            width: 140px;
+            max-width: 180px;
             vertical-align: top;
         }
 
@@ -1741,6 +1741,7 @@ function loadSnapshot(snapshot) {
     const data = Array.isArray(snapshot.data) ? snapshot.data : [];
     const meta = snapshot.meta || {};
     const columns = snapshot.columns;
+    const existingVersions = getVersions();
     lastEditedRow = null;
     isRestoringState = true;
     try {
@@ -1799,11 +1800,34 @@ function loadSnapshot(snapshot) {
     applyColumnSettings(columnSettings, true);
     updateColumnOverlayList();
     if (Array.isArray(snapshot.versions)) {
-        localStorage.setItem(VERSION_STORAGE_KEY, JSON.stringify(snapshot.versions));
-        setActiveVersion(snapshot.activeVersion || '');
+        const mergedVersions = mergeVersionLists(existingVersions, snapshot.versions);
+        setVersions(mergedVersions);
+        const activeFromSnapshot = snapshot.activeVersion;
+        if (!suppressActiveVersionUpdate) {
+            if (activeFromSnapshot && mergedVersions.some(v => String(v.id) === String(activeFromSnapshot))) {
+                setActiveVersion(activeFromSnapshot);
+            } else if (activeFromSnapshot === '' || activeFromSnapshot === null) {
+                setActiveVersion('');
+            } else {
+                const currentActive = getActiveVersion();
+                if (currentActive && !mergedVersions.some(v => String(v.id) === String(currentActive))) {
+                    setActiveVersion('');
+                }
+            }
+        } else {
+            const currentActive = getActiveVersion();
+            if (currentActive && !mergedVersions.some(v => String(v.id) === String(currentActive))) {
+                setActiveVersion('');
+            }
+        }
     } else {
-        localStorage.setItem(VERSION_STORAGE_KEY, '[]');
-        setActiveVersion('');
+        setVersions(existingVersions);
+        if (!suppressActiveVersionUpdate) {
+            const currentActive = getActiveVersion();
+            if (currentActive && !existingVersions.some(v => String(v.id) === String(currentActive))) {
+                setActiveVersion('');
+            }
+        }
     }
     updateVersionSelect();
     calculateTime();
@@ -2022,6 +2046,34 @@ function getVersions() {
 
 function setVersions(versions) {
     localStorage.setItem(VERSION_STORAGE_KEY, JSON.stringify(versions));
+}
+
+function normalizeVersionEntry(entry) {
+    if (!entry) return null;
+    const normalized = Object.assign({}, entry);
+    if (!normalized.id) {
+        normalized.id = (Date.now() + Math.random()).toString(36);
+    }
+    normalized.id = String(normalized.id);
+    return normalized;
+}
+
+function mergeVersionLists(existing, incoming) {
+    const map = new Map();
+    const order = [];
+    const addList = (list) => {
+        (list || []).forEach(item => {
+            const normalized = normalizeVersionEntry(item);
+            if (!normalized) return;
+            if (!map.has(normalized.id)) {
+                map.set(normalized.id, normalized);
+                order.push(normalized.id);
+            }
+        });
+    };
+    addList(existing);
+    addList(incoming);
+    return order.map(id => map.get(id));
 }
 
 function getActiveVersion() {
@@ -2457,6 +2509,7 @@ function addShot(data = {}) {
 
     enableRowDrag(row);
     insertRowBeforeWrap(row);
+    if (columnSettings) applyColumnSettings(columnSettings);
     row.querySelectorAll('textarea.auto-grow').forEach(autoGrow);
     if (!isRestoringState) {
         calculateTime();
@@ -2910,8 +2963,13 @@ function loadSelectedVersion() {
         return;
     }
     localStorage.setItem(CURRENT_STATE_KEY, version.state);
-    setActiveVersion(id);
-    loadState();
+    suppressActiveVersionUpdate = true;
+    try {
+        setActiveVersion(id);
+        loadState();
+    } finally {
+        suppressActiveVersionUpdate = false;
+    }
     updateVersionSelect();
     showNotification('Version geladen!');
 }

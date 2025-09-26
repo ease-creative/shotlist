@@ -3174,6 +3174,24 @@ function updateSceneSummary(summaryData) {
         locations: segment.locations instanceof Set ? new Set(segment.locations) : new Set()
     });
 
+    const extractSceneNumber = (value) => {
+        const trimmed = (value || '').trim();
+        if (!trimmed) return '';
+        const numericMatch = trimmed.match(/\d+/);
+        if (numericMatch) {
+            return numericMatch[0];
+        }
+        return trimmed;
+    };
+
+    const formatScenePartLabel = (sceneValue, part) => {
+        const base = extractSceneNumber(sceneValue);
+        if (!base) {
+            return `Teil ${part}`;
+        }
+        return `${base}.${part}`;
+    };
+
     if (sceneSummaryMode === 'scene') {
         const startSpecials = sortedSpecials.filter(item => item.specialType === 'start');
         const pauseSpecials = sortedSpecials.filter(item => item.specialType === 'pause');
@@ -3231,10 +3249,11 @@ function updateSceneSummary(summaryData) {
                 seenScenes.add(sceneKey);
             }
             if (totalParts > 1) {
+                const partLabel = formatScenePartLabel(item.scene, item.part);
                 entries.push({
                     type: 'part',
                     groupType: 'scene',
-                    label: `Teil ${item.part}`,
+                    label: partLabel,
                     key: sceneKey,
                     indent: 1,
                     metric: item

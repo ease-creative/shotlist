@@ -660,6 +660,11 @@
             color: var(--color-accent-parallel);
             font-style: italic;
         }
+
+        .shot-row input.parallel-shoot-disabled:disabled {
+            opacity: 0.6;
+            background: var(--color-bg-tertiary);
+        }
         
         .table-container {
             overflow-x: auto;
@@ -3257,8 +3262,7 @@ function updateSceneSummary(summaryData) {
                     label: sceneNumberLabel,
                     key: sceneKey,
                     indent: 1,
-                    metric: item,
-                    partLabel
+                    metric: item
                 });
             }
         });
@@ -3753,7 +3757,8 @@ function calculateTime() {
     const startMinutes = parseStartMinutes();
     let currentStart = startMinutes;
     Array.from(tbody.rows).forEach(row => {
-        let rowDuration = 0;
+        let rowDurationDisplay = 0;
+        let rowDurationContribution = 0;
         let setupMinutes = 0;
         let shootMinutes = 0;
         let sceneValueForRow = '';
@@ -3783,7 +3788,8 @@ function calculateTime() {
             const v = parseInt(pause ? pause.value : 0, 10) || 0;
             const display = row.querySelector('.time-display');
             if (display) display.textContent = v + 'm';
-            rowDuration = v;
+            rowDurationDisplay = v;
+            rowDurationContribution = v;
             currentSegment = null;
             currentLocationSegment = null;
             specialType = 'pause';
@@ -3793,7 +3799,8 @@ function calculateTime() {
             const v = parseInt(input ? input.value : 0, 10) || 0;
             const display = row.querySelector('.time-display');
             if (display) display.textContent = v + 'm';
-            rowDuration = v;
+            rowDurationDisplay = v;
+            rowDurationContribution = v;
             currentSegment = null;
             currentLocationSegment = null;
         } else if (row.classList.contains('start-row')) {
@@ -3801,14 +3808,16 @@ function calculateTime() {
             const v = parseInt(input ? input.value : 0, 10) || 0;
             const display = row.querySelector('.time-display');
             if (display) display.textContent = v + 'm';
-            rowDuration = v;
+            rowDurationDisplay = v;
+            rowDurationContribution = v;
             currentSegment = null;
             currentLocationSegment = null;
             specialType = 'start';
             specialLabel = 'Start – Briefing/Aufbau';
         } else if (row.classList.contains('wrap-row')) {
             updateBreakRowMetadata(row, shotCount, scenesSet);
-            rowDuration = 0;
+            rowDurationDisplay = 0;
+            rowDurationContribution = 0;
             const display = row.querySelector('.time-display');
             if (display) display.textContent = '--';
             currentSegment = null;
@@ -3821,14 +3830,14 @@ function calculateTime() {
             setupMinutes = parseInt(setupCell ? setupCell.value : 0, 10) || 0;
             shootMinutes = parseInt(shootCell ? shootCell.value : 0, 10) || 0;
             const sum = setupMinutes + shootMinutes;
-            if (row.cells[13]) row.cells[13].textContent = sum + 'm';
-            rowDuration = sum;
+            rowDurationDisplay = sum;
+            rowDurationContribution = sum;
         }
 
         const startValid = currentStart != null && !Number.isNaN(currentStart);
         if (startValid) {
             sequentialStart = currentStart;
-            sequentialEnd = currentStart + rowDuration;
+            sequentialEnd = currentStart + rowDurationContribution;
             displayStartMinutes = sequentialStart;
             displayEndMinutes = sequentialEnd;
         }
@@ -3840,11 +3849,21 @@ function calculateTime() {
             const immediatePrevShot = requestedParallel && prevSibling && prevSibling.classList && prevSibling.classList.contains('shot-row') ? prevSibling : null;
             if (requestedParallel && immediatePrevShot) {
                 const prevStartStr = immediatePrevShot.dataset.displayStart;
+                const prevEndStr = immediatePrevShot.dataset.displayEnd;
                 const anchorStart = prevStartStr !== undefined && prevStartStr !== '' ? parseInt(prevStartStr, 10) : NaN;
+                const anchorEnd = prevEndStr !== undefined && prevEndStr !== '' ? parseInt(prevEndStr, 10) : NaN;
                 if (!Number.isNaN(anchorStart)) {
                     displayStartMinutes = anchorStart;
-                    const parallelShoot = shootMinutes > 0 ? shootMinutes : 0;
-                    displayEndMinutes = displayStartMinutes + parallelShoot;
+                    if (!Number.isNaN(anchorEnd)) {
+                        displayEndMinutes = anchorEnd;
+                    } else {
+                        displayEndMinutes = anchorStart;
+                    }
+                    const diff = displayEndMinutes != null && displayStartMinutes != null
+                        ? Math.max(0, displayEndMinutes - displayStartMinutes)
+                        : 0;
+                    rowDurationDisplay = diff;
+                    rowDurationContribution = 0;
                     appliedParallel = true;
                 }
             } else if (requestedParallel) {
@@ -3854,6 +3873,7 @@ function calculateTime() {
             if (!appliedParallel && startValid) {
                 displayStartMinutes = sequentialStart;
                 displayEndMinutes = sequentialEnd;
+                rowDurationDisplay = rowDurationDisplay == null ? 0 : rowDurationDisplay;
             }
 
             if (appliedParallel) {
@@ -3865,7 +3885,18 @@ function calculateTime() {
             delete row.dataset.parallelApplied;
         }
 
+        if (startValid) {
+            sequentialEnd = sequentialStart + rowDurationContribution;
+        }
+
         if (isShotRow) {
+            const totalCell = row.querySelector('[data-col-key="total"]');
+            if (totalCell) {
+                const minutesValue = Number.isFinite(rowDurationDisplay) ? rowDurationDisplay : 0;
+                const displayMinutes = Math.max(0, Math.round(minutesValue));
+                totalCell.textContent = `${displayMinutes}m`;
+            }
+
             const key = sceneValueForRow || '__blank__';
             let metric = sceneMetrics.get(key);
             if (!metric) {
@@ -3881,7 +3912,7 @@ function calculateTime() {
                 };
             }
             metric.count += 1;
-            metric.duration += rowDuration;
+            metric.duration += rowDurationContribution;
             metric.shots.push(shotLabelForRow || '—');
             if (displayStartMinutes != null) {
                 metric.start = metric.start == null ? displayStartMinutes : Math.min(metric.start, displayStartMinutes);
@@ -3919,7 +3950,7 @@ function calculateTime() {
                 }
             }
             currentSegment.count += 1;
-            currentSegment.duration += rowDuration;
+            currentSegment.duration += rowDurationContribution;
             currentSegment.shots.push(shotLabelForRow || '—');
             if (locationLabel) {
                 currentSegment.locations.add(locationLabel);
@@ -3941,7 +3972,7 @@ function calculateTime() {
                 };
             }
             locationMetric.count += 1;
-            locationMetric.duration += rowDuration;
+            locationMetric.duration += rowDurationContribution;
             locationMetric.shots.push(shotLabelForRow || '—');
             if (displayStartMinutes != null) {
                 locationMetric.start = locationMetric.start == null ? displayStartMinutes : Math.min(locationMetric.start, displayStartMinutes);
@@ -3983,7 +4014,7 @@ function calculateTime() {
                 }
             }
             currentLocationSegment.count += 1;
-            currentLocationSegment.duration += rowDuration;
+            currentLocationSegment.duration += rowDurationContribution;
             currentLocationSegment.shots.push(shotLabelForRow || '—');
             if (sceneValueForRow) {
                 currentLocationSegment.scenes.add(sceneValueForRow);
@@ -3997,7 +4028,7 @@ function calculateTime() {
             const entry = {
                 specialType,
                 label: specialLabel,
-                duration: rowDuration,
+                duration: rowDurationContribution,
                 start: sequentialStart,
                 end: sequentialEnd,
                 locations: [],
@@ -4041,10 +4072,10 @@ function calculateTime() {
         }
 
         if (startValid) {
-            currentStart += rowDuration;
+            currentStart += rowDurationContribution;
         }
 
-        total += rowDuration;
+        total += rowDurationContribution;
     });
     sceneSegments.forEach(segment => {
         segment.totalParts = segmentPartCounters.get(segment.sceneKey) || 1;
@@ -4164,6 +4195,11 @@ function setParallelState(row, active) {
     if (btn) {
         btn.classList.toggle('active', !!active);
         btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    }
+    const shootInput = row.querySelector('[data-col-key="shoot"] input');
+    if (shootInput) {
+        shootInput.disabled = !!active;
+        shootInput.classList.toggle('parallel-shoot-disabled', !!active);
     }
 }
 

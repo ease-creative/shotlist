@@ -3212,7 +3212,8 @@ function updateSceneSummary(summaryData) {
         start: typeof segment.start === 'number' ? segment.start : null,
         end: typeof segment.end === 'number' ? segment.end : null,
         scenes: segment.scenes instanceof Set ? new Set(segment.scenes) : new Set(),
-        locations: segment.locations instanceof Set ? new Set(segment.locations) : new Set()
+        locations: segment.locations instanceof Set ? new Set(segment.locations) : new Set(),
+        shotsByScene: segment.shotsByScene instanceof Map ? new Map(segment.shotsByScene) : new Map()
     });
 
     const extractSceneNumber = (value) => {
@@ -3327,7 +3328,10 @@ function updateSceneSummary(summaryData) {
             const totalParts = item.totalParts || 1;
             if (!seenLocations.has(locationKey)) {
                 const aggregateSource = aggregatedMap.get(locationKey) || createLocationAggregateFallback(item);
-                const aggregateMetric = Object.assign({}, aggregateSource, { totalParts });
+                const aggregateMetric = Object.assign({}, aggregateSource, {
+                    totalParts,
+                    shotsWithScenes: convertShotsBySceneMap(aggregateSource.shotsByScene)
+                });
                 const baseLabel = aggregateMetric.location && aggregateMetric.location.length
                     ? aggregateMetric.location
                     : '—';
@@ -3341,13 +3345,16 @@ function updateSceneSummary(summaryData) {
                 seenLocations.add(locationKey);
             }
             if (totalParts > 1) {
+                const segmentMetric = Object.assign({}, item, {
+                    shotsWithScenes: convertShotsBySceneMap(item.shotsByScene)
+                });
                 entries.push({
                     type: 'part',
                     groupType: 'location',
                     label: `Teil ${item.part}`,
                     key: locationKey,
                     indent: 1,
-                    metric: item
+                    metric: segmentMetric
                 });
             }
         });
@@ -3389,6 +3396,33 @@ function updateSceneSummary(summaryData) {
         return cleaned;
     };
 
+    const convertShotsBySceneMap = (data) => {
+        if (!data) return [];
+        const normalizeShots = (shots) => {
+            if (!Array.isArray(shots)) return [];
+            return shots
+                .map(shot => typeof shot === 'string' ? shot.trim() : String(shot || '').trim())
+                .filter(shot => shot.length);
+        };
+        const groups = [];
+        if (data instanceof Map) {
+            data.forEach((shots, scene) => {
+                const normalizedShots = normalizeShots(shots);
+                if (!normalizedShots.length) return;
+                groups.push({ scene: (scene || '').trim(), shots: normalizedShots });
+            });
+        } else if (Array.isArray(data)) {
+            return data;
+        } else if (typeof data === 'object') {
+            Object.keys(data).forEach(scene => {
+                const normalizedShots = normalizeShots(data[scene]);
+                if (!normalizedShots.length) return;
+                groups.push({ scene: (scene || '').trim(), shots: normalizedShots });
+            });
+        }
+        return groups;
+    };
+
     const formatLocationColumn = (entry) => {
         if (!entry || entry.type === 'special') return '—';
         if (entry.groupType === 'location') {
@@ -3402,6 +3436,17 @@ function updateSceneSummary(summaryData) {
 
     const formatShotsList = (entry) => {
         if (entry && entry.type === 'special') return '—';
+        if (entry && entry.groupType === 'location' && Array.isArray(entry.metric && entry.metric.shotsWithScenes)) {
+            const groups = entry.metric.shotsWithScenes;
+            const formattedGroups = groups.map(group => {
+                const sceneLabel = group.scene || '';
+                return (group.shots || []).map(shot => {
+                    const shotLabel = (shot || '').trim();
+                    return sceneLabel ? `${sceneLabel}.${shotLabel}` : shotLabel;
+                }).filter(Boolean).join(', ');
+            }).filter(Boolean);
+            return formattedGroups.join(' | ') || '—';
+        }
         return formatList(entry.metric && Array.isArray(entry.metric.shots) ? entry.metric.shots : []);
     };
 
@@ -4016,7 +4061,8 @@ function calculateTime() {
                     start: null,
                     end: null,
                     scenes: new Set(),
-                    locations: new Set()
+                    locations: new Set(),
+                    shotsByScene: new Map()
                 };
             }
             locationMetric.count += 1;
@@ -4034,6 +4080,15 @@ function calculateTime() {
             if (locationLabel) {
                 locationMetric.locations.add(locationLabel);
             }
+            if (!locationMetric.shotsByScene) {
+                locationMetric.shotsByScene = new Map();
+            }
+            const sceneKeyForLocation = sceneValueForRow || '';
+            const existingSceneShots = locationMetric.shotsByScene.get(sceneKeyForLocation) || [];
+            if (shotLabelForRow) {
+                existingSceneShots.push(shotLabelForRow);
+            }
+            locationMetric.shotsByScene.set(sceneKeyForLocation, existingSceneShots);
             locationMetrics.set(locationKey, locationMetric);
 
             if (!currentLocationSegment || currentLocationSegment.locationKey !== locationKey) {
@@ -4050,7 +4105,8 @@ function calculateTime() {
                     start: displayStartMinutes,
                     end: displayEndMinutes,
                     scenes: new Set(),
-                    locations: new Set()
+                    locations: new Set(),
+                    shotsByScene: new Map()
                 };
                 locationSegments.push(currentLocationSegment);
             } else {
@@ -4070,6 +4126,15 @@ function calculateTime() {
             if (locationLabel) {
                 currentLocationSegment.locations.add(locationLabel);
             }
+            if (!currentLocationSegment.shotsByScene) {
+                currentLocationSegment.shotsByScene = new Map();
+            }
+            const segmentSceneKey = sceneValueForRow || '';
+            const segmentSceneShots = currentLocationSegment.shotsByScene.get(segmentSceneKey) || [];
+            if (shotLabelForRow) {
+                segmentSceneShots.push(shotLabelForRow);
+            }
+            currentLocationSegment.shotsByScene.set(segmentSceneKey, segmentSceneShots);
         }
 
         if (specialType) {

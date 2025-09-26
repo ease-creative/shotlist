@@ -3231,6 +3231,7 @@ function updateSceneSummary(summaryData) {
         const combined = sceneSegments.concat(sortedSpecials);
         combined.sort(compareEntries);
         const seenScenes = new Set();
+        const segmentedScenes = new Set();
 
         combined.forEach(item => {
             if (!item) return;
@@ -3254,6 +3255,7 @@ function updateSceneSummary(summaryData) {
                 seenScenes.add(sceneKey);
             }
             if (totalParts > 1) {
+                segmentedScenes.add(sceneKey);
                 const partLabel = formatScenePartLabel(item.scene, item.part);
                 const sceneNumberLabel = extractSceneNumber(item.scene) || partLabel;
                 entries.push({
@@ -3264,6 +3266,12 @@ function updateSceneSummary(summaryData) {
                     indent: 1,
                     metric: item
                 });
+            }
+        });
+
+        entries.forEach(entry => {
+            if (entry && entry.type === 'group-header' && entry.groupType === 'scene') {
+                entry.segmented = segmentedScenes.has(entry.key);
             }
         });
     } else {
@@ -3456,8 +3464,8 @@ function updateSceneSummary(summaryData) {
         let locationLabel = formatLocationColumn(entry);
 
         if (entry.type === 'group-header' && entry.groupType === 'scene') {
-            shotsList = '';
-            timeLabel = '';
+            shotsList = entry.segmented ? '' : shotsList;
+            timeLabel = entry.segmented ? '' : timeLabel;
         }
 
         const cells = [

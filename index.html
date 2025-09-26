@@ -919,32 +919,46 @@
         }
 
         .full-row-cell {
-            padding: 12px 16px !important;
+            padding: 10px 16px !important;
         }
 
-        .full-row-content {
+        .full-row-sections {
             display: flex;
-            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+        }
+
+        .full-row-left {
+            display: flex;
             align-items: center;
             gap: 10px;
+            min-width: 140px;
+            justify-content: flex-start;
+        }
+
+        .full-row-left:empty {
+            display: none;
+        }
+
+        .full-row-center {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.05rem;
             text-align: center;
         }
 
-        .full-row-content .time-display,
-        .full-row-content .start-time-cell {
-            font-size: 0.95rem;
-        }
-
-        .full-row-main {
+        .full-row-right {
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 14px;
-            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: flex-end;
+            min-width: 180px;
         }
 
-        .full-row-main label,
-        .full-row-main .full-row-field {
+        .full-row-left label,
+        .full-row-right label {
             display: flex;
             align-items: center;
             gap: 8px;
@@ -952,20 +966,24 @@
             color: #495057;
         }
 
-        .full-row-main input[type="number"] {
+        .full-row-left input[type="number"],
+        .full-row-right input[type="number"] {
             width: 90px;
         }
 
-        .full-row-main input[type="text"] {
+        .full-row-left input[type="text"],
+        .full-row-right input[type="text"] {
             width: 140px;
         }
 
-        .full-row-main .time-display {
+        .full-row-right .time-display {
             min-width: 60px;
         }
 
-        .full-row-main .start-time-cell {
+        .full-row-right .start-time-cell {
             min-width: 90px;
+            text-align: right;
+            white-space: nowrap;
         }
 
         .wrap-row {
@@ -2066,9 +2084,9 @@ function mergeVersionLists(existing, incoming) {
             const normalized = normalizeVersionEntry(item);
             if (!normalized) return;
             if (!map.has(normalized.id)) {
-                map.set(normalized.id, normalized);
                 order.push(normalized.id);
             }
+            map.set(normalized.id, normalized);
         });
     };
     addList(existing);
@@ -2526,14 +2544,15 @@ function addPause() {
     row.innerHTML = `
         <td data-col-key="scene" class="break-meta-cell"><div class="break-meta"><span class="break-shots">Shots: 0</span><span class="break-scenes">Szenen: –</span></div></td>
         <td data-col-key="shot" class="full-row-cell" colspan="${mainColSpan}">
-            <div class="full-row-content pause-row-content">
-                <span class="pause-label">⏸️ PAUSE</span>
-                <div class="full-row-main">
+            <div class="full-row-sections pause-row-content">
+                <div class="full-row-left"></div>
+                <div class="full-row-center"><span class="pause-label">⏸️ PAUSE</span></div>
+                <div class="full-row-right">
                     <label>Dauer
                         <input type="number" min="0" value="30" onchange="calculateTime();saveState();" class="time-input">
                     </label>
                     <span class="time-display">30m</span>
-            	    <span class="start-time-cell">--:--</span>
+                    <span class="start-time-cell">--:--</span>
                 </div>
             </div>
         </td>
@@ -2561,9 +2580,10 @@ function addWrap() {
         row.innerHTML = `
             <td data-col-key="scene" class="break-meta-cell"><div class="break-meta"><span class="break-shots">Total Shots: 0</span><span class="break-scenes">Szenen: –</span></div></td>
             <td data-col-key="shot" class="full-row-cell" colspan="${mainColSpan}">
-                <div class="full-row-content wrap-row-content">
-                    <span class="wrap-label">🎬 WRAP</span>
-                    <div class="full-row-main">
+                <div class="full-row-sections wrap-row-content">
+                    <div class="full-row-left"></div>
+                    <div class="full-row-center"><span class="wrap-label">🎬 WRAP</span></div>
+                    <div class="full-row-right">
                         <span class="time-display">--</span>
                         <span class="start-time-cell">--:--</span>
                     </div>
@@ -2593,13 +2613,15 @@ function addStart(data = {}) {
     row.innerHTML = `
         <td data-col-key="scene" class="break-meta-cell"></td>
         <td data-col-key="shot" class="full-row-cell" colspan="${mainColSpan}">
-            <div class="full-row-content start-row-content">
-                <span class="start-label">START</span>
-                <div class="full-row-main">
+            <div class="full-row-sections start-row-content">
+                <div class="full-row-left">
                     <div class="start-duration">
                         <label>Briefing/Aufbau</label>
                         <input type="number" min="0" step="1" class="time-input start-duration-input" value="${duration}" onchange="calculateTime();saveState();">
                     </div>
+                </div>
+                <div class="full-row-center"><span class="start-label">START</span></div>
+                <div class="full-row-right">
                     <span class="time-display">${duration ? duration + 'm' : '0m'}</span>
                     <span class="start-time-cell">--:--</span>
                 </div>
@@ -2630,12 +2652,14 @@ function addUmbau(data = {}) {
     row.innerHTML = `
         <td data-col-key="scene" class="break-meta-cell"></td>
         <td data-col-key="shot" class="full-row-cell" colspan="${mainColSpan}">
-            <div class="full-row-content umbau-row-content">
-                <span class="umbau-label">UMBAU</span>
-                <div class="full-row-main">
+            <div class="full-row-sections umbau-row-content">
+                <div class="full-row-left">
                     <label>Departement
                         <input type="text" placeholder="Departement" class="umbau-department-input" onchange="saveState()" value="${department.replace(/"/g,'&quot;')}">
                     </label>
+                </div>
+                <div class="full-row-center"><span class="umbau-label">UMBAU</span></div>
+                <div class="full-row-right">
                     <label>Dauer
                         <input type="number" min="0" class="time-input umbau-duration-input" onchange="calculateTime();saveState();">
                     </label>

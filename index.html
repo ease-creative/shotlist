@@ -1655,6 +1655,7 @@ function loadSnapshot(snapshot) {
     const data = Array.isArray(snapshot.data) ? snapshot.data : [];
     const meta = snapshot.meta || {};
     const columns = snapshot.columns;
+    lastEditedRow = null;
     isRestoringState = true;
     try {
         body.innerHTML = '';
@@ -2665,8 +2666,17 @@ function duplicateRow(btn) {
     addShot(data);
     isRestoringState = previousRestoringState;
     const tbody = row.parentNode;
-    const newRow = tbody ? tbody.lastElementChild : null;
-    if (tbody && newRow && newRow !== row) {
+    let newRow = null;
+    if (tbody) {
+        const wrapRow = getWrapRow();
+        if (wrapRow && wrapRow.parentNode === tbody) {
+            newRow = wrapRow.previousElementSibling;
+        }
+        if (!newRow) {
+            newRow = tbody.lastElementChild;
+        }
+    }
+    if (tbody && newRow && newRow !== row && newRow.parentNode === tbody) {
         tbody.insertBefore(newRow, row.nextSibling);
         if (columnSettings) applyColumnSettings(columnSettings);
         calculateTime();
@@ -2691,6 +2701,7 @@ function clearAll() {
     lastResetState = previousState;
     const tbody = document.getElementById('shotlistBody');
     if (tbody) tbody.innerHTML = '';
+    lastEditedRow = null;
     calculateTime();
     saveState();
     updateUndoButtonVisibility(!!lastResetState && lastResetState !== '');
@@ -2855,6 +2866,8 @@ window.onload = function() {
     if (tbody) {
         tbody.addEventListener('dragover', handleTableDragOver);
         tbody.addEventListener('drop', event => event.preventDefault());
+        tbody.addEventListener('input', handleFieldEdited);
+        tbody.addEventListener('change', handleFieldEdited);
     }
     if (!hasStoredState && tbody && tbody.children.length === 0) {
         for (let i = 0; i < 3; i++) {

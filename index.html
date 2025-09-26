@@ -78,7 +78,7 @@
             align-items: flex-end;
             gap: 16px;
         }
-        
+
         .time-info {
             display: flex;
             flex-direction: column;
@@ -163,13 +163,13 @@
             outline: none;
             border-color: rgba(255,255,255,0.6);
         }
-        
+
         @keyframes pulse {
             0% { transform: scale(1); }
             50% { transform: scale(1.05); }
             100% { transform: scale(1); }
         }
-        
+
         .project-info {
             padding: 25px 30px;
             background: #f8f9fa;
@@ -219,6 +219,102 @@
             display: flex;
             align-items: center;
             gap: 10px;
+        }
+
+        .print-heading {
+            font-size: 1.4rem;
+            margin-bottom: 12px;
+            color: #343a40;
+        }
+
+        .print-meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 6px 18px;
+            margin-bottom: 16px;
+        }
+
+        .print-meta-row {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+            padding: 2px 0;
+            font-size: 0.9rem;
+        }
+
+        .print-meta-label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .print-meta-value {
+            color: #212529;
+            padding-left: 8px;
+            text-align: right;
+        }
+
+        .print-notes {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .print-note {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            font-size: 0.9rem;
+            color: #495057;
+        }
+
+        .print-note-box {
+            flex: 1;
+            min-height: 40px;
+            border: 1px solid rgba(0,0,0,0.2);
+            border-radius: 4px;
+        }
+
+        .print-reference-list {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .print-reference-item {
+            display: flex;
+            gap: 18px;
+            align-items: flex-start;
+            page-break-inside: avoid;
+        }
+
+        .print-reference-image {
+            flex: 0 0 220px;
+        }
+
+        .print-reference-image img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px;
+            border: 1px solid rgba(0,0,0,0.15);
+        }
+
+        .print-reference-details {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 6px 14px;
+            font-size: 0.9rem;
+        }
+
+        .print-reference-details .detail-label {
+            font-weight: 600;
+            color: #495057;
+            display: block;
+        }
+
+        .print-reference-details .detail-value {
+            color: #212529;
         }
 
         .project-controls {
@@ -825,6 +921,10 @@
             border-left: 5px solid #28a745 !important;
         }
 
+        .print-only {
+            display: none;
+        }
+
         .start-row td {
             background: transparent !important;
             font-weight: 600;
@@ -1050,6 +1150,26 @@
                 </div>
             </div>
         </div>
+
+        <div id="printOverviewSection" class="print-only">
+            <h2 class="print-heading">Projektübersicht</h2>
+            <div class="print-meta-grid" id="printMetaGrid">
+                <div class="print-meta-row"><span class="print-meta-label">Client</span><span id="printClient" class="print-meta-value"></span></div>
+                <div class="print-meta-row"><span class="print-meta-label">Production Title</span><span id="printProduction" class="print-meta-value"></span></div>
+                <div class="print-meta-row"><span class="print-meta-label">Location</span><span id="printLocation" class="print-meta-value"></span></div>
+                <div class="print-meta-row"><span class="print-meta-label">Director</span><span id="printDirector" class="print-meta-value"></span></div>
+                <div class="print-meta-row"><span class="print-meta-label">Date</span><span id="printDate" class="print-meta-value"></span></div>
+                <div class="print-meta-row"><span class="print-meta-label">Cinematographer</span><span id="printCinematographer" class="print-meta-value"></span></div>
+                <div class="print-meta-row"><span class="print-meta-label">Agency</span><span id="printAgency" class="print-meta-value"></span></div>
+                <div class="print-meta-row"><span class="print-meta-label">Start</span><span id="printStart" class="print-meta-value"></span></div>
+                <div class="print-meta-row"><span class="print-meta-label">Wrap</span><span id="printWrap" class="print-meta-value"></span></div>
+            </div>
+            <div class="print-notes">
+                <div class="print-note"><span>Notiz 1</span><div class="print-note-box"></div></div>
+                <div class="print-note"><span>Notiz 2</span><div class="print-note-box"></div></div>
+                <div class="print-note"><span>Notiz 3</span><div class="print-note-box"></div></div>
+            </div>
+        </div>
         
         <div class="project-info">
             <div class="info-group">
@@ -1136,7 +1256,12 @@
                 </tbody>
             </table>
         </div>
-        
+
+        <div id="printReferencePage" class="print-only print-reference-page">
+            <h2 class="print-heading">Referenzbilder</h2>
+            <div id="printReferenceList" class="print-reference-list"></div>
+        </div>
+
         <div class="export-section">
             <h3>Export & Speichern</h3>
             <div class="export-buttons">
@@ -1870,6 +1995,33 @@ function formatDurationLabel(totalMinutes) {
     return parts.join(' ');
 }
 
+function sanitizePrintText(value) {
+    if (!value) return '—';
+    return value.replace(/[\s\n\r\t]+/g, ' ').trim() || '—';
+}
+
+function updatePrintMeta() {
+    const fieldMap = {
+        printClient: 'clientName',
+        printProduction: 'productionTitle',
+        printLocation: 'location',
+        printDirector: 'director',
+        printDate: 'date',
+        printCinematographer: 'cinematographer',
+        printAgency: 'agency',
+        printStart: 'startTime',
+        printWrap: 'wrapTime'
+    };
+    Object.entries(fieldMap).forEach(([printId, inputId]) => {
+        const printEl = document.getElementById(printId);
+        const inputEl = document.getElementById(inputId);
+        if (printEl) {
+            const value = inputEl ? (inputEl.value || '') : '';
+            printEl.textContent = sanitizePrintText(value);
+        }
+    });
+}
+
 function updateBreakRowMetadata(row, shotCount, scenesSet) {
     const container = row.querySelector('.break-meta');
     if (!container) return;
@@ -1883,6 +2035,88 @@ function updateBreakRowMetadata(row, shotCount, scenesSet) {
         const scenes = Array.from(scenesSet).map(scene => String(scene || '').trim()).filter(scene => scene.length > 0);
         scenesEl.textContent = scenes.length ? `Szenen: ${scenes.join(', ')}` : 'Szenen: –';
     }
+}
+
+function populatePrintReferences() {
+    const tbody = document.getElementById('shotlistBody');
+    const refPage = document.getElementById('printReferencePage');
+    const refList = document.getElementById('printReferenceList');
+    if (!tbody || !refPage || !refList) return;
+    refList.innerHTML = '';
+    let hasImages = false;
+    Array.from(tbody.rows).forEach(row => {
+        if (!row.classList.contains('shot-row')) return;
+        const previewImg = row.querySelector('.image-preview img');
+        if (!previewImg || !previewImg.src) return;
+        hasImages = true;
+        const scene = sanitizePrintText(row.querySelector('.scene-number input')?.value || '');
+        const shot = sanitizePrintText(row.querySelector('.shot-letter input')?.value || '');
+        const typeSelect = row.querySelector('.shot-type-select');
+        const type = sanitizePrintText(typeSelect ? (typeSelect.options[typeSelect.selectedIndex]?.text || typeSelect.value) : '');
+        const movementSelect = row.querySelector('.movement-select');
+        const movement = sanitizePrintText(movementSelect ? (movementSelect.options[movementSelect.selectedIndex]?.text || movementSelect.value) : '');
+        const locationField = row.querySelector('[data-col-key="location"] textarea');
+        const location = sanitizePrintText(locationField ? locationField.value : '');
+        const descriptionField = row.querySelector('[data-col-key="description"] textarea');
+        const description = sanitizePrintText(descriptionField ? descriptionField.value : '');
+        const timeCell = row.querySelector('.start-time-cell');
+        const time = sanitizePrintText(timeCell ? timeCell.textContent : '');
+
+        const item = document.createElement('div');
+        item.className = 'print-reference-item';
+
+        const imageWrapper = document.createElement('div');
+        imageWrapper.className = 'print-reference-image';
+        const imageEl = document.createElement('img');
+        imageEl.src = previewImg.src;
+        imageEl.alt = `${scene || 'Szene'} ${shot || ''}`.trim();
+        imageWrapper.appendChild(imageEl);
+
+        const details = document.createElement('div');
+        details.className = 'print-reference-details';
+        [
+            ['Szene', scene],
+            ['Shot', shot],
+            ['Shot Type', type],
+            ['Movement', movement],
+            ['Location', location],
+            ['Shot Description', description],
+            ['Uhrzeit', time]
+        ].forEach(([label, value]) => {
+            const wrapper = document.createElement('div');
+            const labelEl = document.createElement('span');
+            labelEl.className = 'detail-label';
+            labelEl.textContent = label;
+            const valueEl = document.createElement('span');
+            valueEl.className = 'detail-value';
+            valueEl.textContent = value || '—';
+            wrapper.appendChild(labelEl);
+            wrapper.appendChild(valueEl);
+            details.appendChild(wrapper);
+        });
+
+        item.appendChild(imageWrapper);
+        item.appendChild(details);
+        refList.appendChild(item);
+    });
+
+    if (hasImages) {
+        refPage.classList.add('has-images');
+    } else {
+        refPage.classList.remove('has-images');
+        refList.innerHTML = '';
+    }
+}
+
+function populatePrintSections() {
+    updatePrintMeta();
+    populatePrintReferences();
+}
+
+function triggerPrint() {
+    calculateTime();
+    populatePrintSections();
+    setTimeout(() => window.print(), 50);
 }
 
 function updateShotCount(count) {
@@ -2254,11 +2488,11 @@ function exportToExcel() {
 }
 
 function exportToPDF() {
-    window.print();
+    triggerPrint();
 }
 
 function printShotlist() {
-    window.print();
+    triggerPrint();
 }
 
 function duplicateRow(btn) {
@@ -2509,12 +2743,75 @@ window.onload = function() {
     </script>
     
     <style media="print">
-        body { background: white; font-size: 12px; }
-        .container { box-shadow: none; }
-        .controls, .export-section { display: none; }
-        .header { background: #4a90e2 !important; }
-        .shotlist-table th { background: #495057 !important; }
-        .table-container { max-height: none; }
+        @page {
+            size: A4 landscape;
+            margin: 12mm;
+        }
+        body {
+            background: white;
+            font-size: 11px;
+            color: #212529;
+        }
+        .container {
+            box-shadow: none;
+            max-width: none;
+            margin: 0;
+        }
+        .header {
+            background: none !important;
+            color: #000;
+            padding-bottom: 10px;
+        }
+        .header .client-input {
+            display: none;
+        }
+        .time-tracking {
+            display: none;
+        }
+        .controls,
+        .export-section,
+        .version-modal,
+        #columnOverlay {
+            display: none !important;
+        }
+        .project-info {
+            display: none;
+        }
+        .print-only {
+            display: block;
+        }
+        .print-heading {
+            page-break-after: avoid;
+        }
+        .table-container {
+            overflow: visible;
+            max-height: none;
+        }
+        .shotlist-table {
+            width: 100%;
+            font-size: 11px;
+        }
+        .shotlist-table th,
+        .shotlist-table td {
+            padding: 6px 5px;
+        }
+        .shotlist-table tr {
+            page-break-inside: avoid;
+        }
+        .reference-upload button,
+        .reference-upload input {
+            display: none !important;
+        }
+        .reference-upload .image-preview {
+            display: none;
+        }
+        .print-reference-page,
+        #printReferencePage {
+            page-break-before: always;
+        }
+        #printReferencePage:not(.has-images) {
+            display: none !important;
+        }
     </style>
 </body>
 </html>

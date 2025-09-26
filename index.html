@@ -647,6 +647,16 @@
             white-space: nowrap;
         }
 
+        .scene-summary-time {
+            color: #495057;
+            white-space: nowrap;
+        }
+
+        .scene-summary-location {
+            white-space: nowrap;
+            color: #343a40;
+        }
+
         .scene-summary-header {
             display: flex;
             align-items: center;
@@ -1456,7 +1466,7 @@
                         <select class="movement-select" onchange="handleMovementChange(this)"></select>
                     </td>
                     <td data-col-key="gear" class="gear-cell col-gear"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)"></textarea></td>
-                    <td data-col-key="location" class="location-cell col-location"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)"></textarea></td>
+                    <td data-col-key="location" class="location-cell col-location"><textarea class="auto-grow" onchange="calculateTime();saveState();" oninput="autoGrow(this)"></textarea></td>
                     <td data-col-key="extint" class="col-extint">
                         <select onchange="saveState()"></select>
                     </td>
@@ -2486,6 +2496,14 @@ function formatDurationLabel(totalMinutes) {
     return parts.join(' ');
 }
 
+function getLocationShort(value) {
+    if (!value) return '';
+    const normalized = String(value).trim();
+    if (!normalized) return '';
+    const firstWord = normalized.split(/\s+/)[0];
+    return firstWord || '';
+}
+
 function sanitizePrintText(value) {
     if (!value) return '—';
     return value.replace(/[\s\n\r\t]+/g, ' ').trim() || '—';
@@ -2760,7 +2778,9 @@ function updateSceneSummary(summaryData) {
                 <th>Szene</th>
                 <th>Shots</th>
                 <th>Shot-Liste</th>
+                <th>Drehzeit</th>
                 <th>Gesamtdauer</th>
+                <th>Location</th>
             </tr>
         </thead>
         <tbody></tbody>
@@ -2777,12 +2797,26 @@ function updateSceneSummary(summaryData) {
             ? metric.shots.join(', ')
             : '—';
         const durationLabel = formatDurationLabel(metric.duration);
+        const timeLabel = (typeof metric.start === 'number' && typeof metric.end === 'number')
+            ? `${formatMinutesToHHMM(metric.start)} – ${formatMinutesToHHMM(metric.end)}`
+            : '—';
+        const locationSet = metric.locations instanceof Set
+            ? Array.from(metric.locations)
+            : Array.isArray(metric.locations)
+                ? metric.locations
+                : [];
+        const locationLabel = locationSet
+            .map(loc => typeof loc === 'string' ? loc.trim() : '')
+            .filter(loc => loc.length)
+            .join(', ') || '—';
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${sceneLabel}</td>
             <td class="scene-summary-shots">${metric.count || 0}</td>
             <td>${shotsList}</td>
+            <td class="scene-summary-time">${timeLabel}</td>
             <td class="scene-summary-duration">${durationLabel}</td>
+            <td class="scene-summary-location">${locationLabel}</td>
         `;
         tbody.appendChild(row);
     });
@@ -3068,6 +3102,9 @@ function calculateTime() {
         let rowDuration = 0;
         let sceneValueForRow = '';
         let shotLabelForRow = '';
+        let locationShort = '';
+        let rowStartMinutes = null;
+        let rowEndMinutes = null;
         const isShotRow = row.classList.contains('shot-row');
         if (isShotRow) {
             shotCount += 1;
@@ -3076,6 +3113,9 @@ function calculateTime() {
             if (sceneValueForRow) scenesSet.add(sceneValueForRow);
             const shotInput = row.querySelector('.shot-letter input');
             shotLabelForRow = shotInput ? shotInput.value.trim() : '';
+            const locationField = row.querySelector('[data-col-key="location"] textarea');
+            const rawLocation = locationField ? locationField.value : '';
+            locationShort = getLocationShort(rawLocation);
         }
         if (row.classList.contains('pause-row')) {
             updateBreakRowMetadata(row, shotCount, scenesSet);
@@ -3113,55 +3153,83 @@ function calculateTime() {
             const sum = setup + shoot;
             if (row.cells[13]) row.cells[13].textContent = sum + 'm';
             rowDuration = sum;
-            if (isShotRow) {
-                const key = sceneValueForRow || '__blank__';
-                let metric = sceneMetrics.get(key);
-                if (!metric) {
-                    metric = {
-                        key,
-                        scene: sceneValueForRow,
-                        shots: [],
-                        duration: 0,
-                        count: 0
-                    };
-                }
-                metric.count += 1;
-                metric.duration += sum;
-                metric.shots.push(shotLabelForRow || '—');
-                sceneMetrics.set(key, metric);
+        }
 
-                if (!currentSegment || currentSegment.sceneKey !== key) {
-                    const part = (segmentPartCounters.get(key) || 0) + 1;
-                    segmentPartCounters.set(key, part);
-                    currentSegment = {
-                        sceneKey: key,
-                        scene: sceneValueForRow,
-                        shots: [],
-                        duration: 0,
-                        count: 0,
-                        part
-                    };
-                    sceneSegments.push(currentSegment);
+        const startValid = currentStart != null && !Number.isNaN(currentStart);
+        if (startValid) {
+            rowStartMinutes = currentStart;
+            rowEndMinutes = currentStart + rowDuration;
+        }
+
+        if (isShotRow) {
+            const key = sceneValueForRow || '__blank__';
+            let metric = sceneMetrics.get(key);
+            if (!metric) {
+                metric = {
+                    key,
+                    scene: sceneValueForRow,
+                    shots: [],
+                    duration: 0,
+                    count: 0,
+                    start: null,
+                    end: null,
+                    locations: new Set()
+                };
+            }
+            metric.count += 1;
+            metric.duration += rowDuration;
+            metric.shots.push(shotLabelForRow || '—');
+            if (rowStartMinutes != null) {
+                metric.start = metric.start == null ? rowStartMinutes : Math.min(metric.start, rowStartMinutes);
+            }
+            if (rowEndMinutes != null) {
+                metric.end = metric.end == null ? rowEndMinutes : Math.max(metric.end, rowEndMinutes);
+            }
+            if (locationShort) {
+                metric.locations.add(locationShort);
+            }
+            sceneMetrics.set(key, metric);
+
+            if (!currentSegment || currentSegment.sceneKey !== key) {
+                const part = (segmentPartCounters.get(key) || 0) + 1;
+                segmentPartCounters.set(key, part);
+                currentSegment = {
+                    sceneKey: key,
+                    scene: sceneValueForRow,
+                    shots: [],
+                    duration: 0,
+                    count: 0,
+                    part,
+                    start: rowStartMinutes,
+                    end: rowEndMinutes,
+                    locations: new Set()
+                };
+                sceneSegments.push(currentSegment);
+            } else {
+                if (rowStartMinutes != null) {
+                    currentSegment.start = currentSegment.start == null ? rowStartMinutes : Math.min(currentSegment.start, rowStartMinutes);
                 }
-                currentSegment.count += 1;
-                currentSegment.duration += sum;
-                currentSegment.shots.push(shotLabelForRow || '—');
+                if (rowEndMinutes != null) {
+                    currentSegment.end = currentSegment.end == null ? rowEndMinutes : Math.max(currentSegment.end, rowEndMinutes);
+                }
+            }
+            currentSegment.count += 1;
+            currentSegment.duration += rowDuration;
+            currentSegment.shots.push(shotLabelForRow || '—');
+            if (locationShort) {
+                currentSegment.locations.add(locationShort);
             }
         }
 
         const startCell = row.querySelector('.start-time-cell');
-        const startValid = currentStart != null && !Number.isNaN(currentStart);
         if (startCell) {
             if (!startValid) {
                 startCell.textContent = '--:--';
             } else {
-                const startStr = formatMinutesToHHMM(currentStart);
-                const endMinutes = currentStart + rowDuration;
-                const endStr = formatMinutesToHHMM(endMinutes);
+                const startStr = formatMinutesToHHMM(rowStartMinutes);
+                const endStr = formatMinutesToHHMM(rowEndMinutes);
                 if (row.classList.contains('wrap-row')) {
                     startCell.textContent = startStr;
-                } else if (rowDuration > 0) {
-                    startCell.textContent = `${startStr} – ${endStr}`;
                 } else {
                     startCell.textContent = `${startStr} – ${endStr}`;
                 }

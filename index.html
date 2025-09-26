@@ -894,81 +894,40 @@
 
         .break-meta-cell {
             color: #6c757d;
-            font-size: 0.75rem;
+            font-size: 0.78rem;
             font-weight: 500;
+            width: 60px;
+            max-width: 140px;
+            vertical-align: top;
         }
 
         .break-meta {
-            display: inline-flex;
-            flex-direction: row;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: nowrap;
-            white-space: nowrap;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            white-space: normal;
+            word-break: break-word;
         }
 
-        .break-meta .break-shots::after {
-            content: ' | ';
-            font-weight: 400;
-            color: #adb5bd;
+        .break-meta .break-shots {
+            font-weight: 600;
         }
 
         .break-meta .break-scenes {
             font-style: italic;
             font-weight: 400;
-            white-space: nowrap;
         }
 
         .full-row-cell {
-            padding: 0 !important;
+            padding: 12px 16px !important;
         }
 
         .full-row-content {
             display: flex;
-            align-items: center;
-            gap: 18px;
-            width: 100%;
-            padding: 12px 18px;
-            flex-wrap: wrap;
-        }
-
-        .full-row-meta {
-            display: flex;
             flex-direction: column;
-            gap: 6px;
-            min-width: 160px;
-        }
-
-        .full-row-main {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            flex-wrap: wrap;
-        }
-
-        .full-row-label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-weight: 600;
-            color: #495057;
-        }
-
-        .full-row-label input {
-            width: 90px;
-        }
-
-        .full-row-timing {
-            display: flex;
             align-items: center;
             gap: 10px;
-        }
-
-        .full-row-actions.action-cell {
-            justify-content: flex-end;
-            padding: 0;
-            flex: 0 0 auto;
+            text-align: center;
         }
 
         .full-row-content .time-display,
@@ -976,8 +935,29 @@
             font-size: 0.95rem;
         }
 
-        .full-row-content .start-time-cell {
-            text-align: left;
+        .full-row-main {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .full-row-main label,
+        .full-row-main .full-row-field {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .full-row-main input[type="number"] {
+            width: 90px;
+        }
+
+        .full-row-main input[type="text"] {
+            width: 140px;
         }
 
         .full-row-main .time-display {
@@ -2489,25 +2469,23 @@ function addPause() {
     const tbody = document.getElementById('shotlistBody');
     const row = document.createElement('tr');
     row.className = 'pause-row';
-    const colSpan = COLUMN_DEFS.length;
+    const mainColSpan = COLUMN_DEFS.length - 2;
     row.innerHTML = `
-        <td class="full-row-cell" colspan="${colSpan}">
+        <td data-col-key="scene" class="break-meta-cell"><div class="break-meta"><span class="break-shots">Shots: 0</span><span class="break-scenes">Szenen: –</span></div></td>
+        <td data-col-key="shot" class="full-row-cell" colspan="${mainColSpan}">
             <div class="full-row-content pause-row-content">
-                <div class="full-row-meta">
-                    <div class="break-meta"><span class="break-shots">Shots: 0</span><span class="break-scenes">Szenen: –</span></div>
-                    <span class="pause-label">⏸️ PAUSE</span>
-                </div>
+                <span class="pause-label">⏸️ PAUSE</span>
                 <div class="full-row-main">
-                    <label class="full-row-label">Dauer
+                    <label>Dauer
                         <input type="number" min="0" value="30" onchange="calculateTime();saveState();" class="time-input">
                     </label>
                     <span class="time-display">30m</span>
-                    <span class="start-time-cell">--:--</span>
-                </div>
-                <div class="full-row-actions action-cell">
-                    <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
+            	    <span class="start-time-cell">--:--</span>
                 </div>
             </div>
+        </td>
+        <td data-col-key="action" class="action-cell">
+            <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
         </td>
     `;
     enableRowDrag(row);
@@ -2524,24 +2502,22 @@ function addWrap() {
     if (!tbody) return;
     let row = getWrapRow();
     if (!row) {
-        const colSpan = COLUMN_DEFS.length;
+        const mainColSpan = COLUMN_DEFS.length - 2;
         row = document.createElement('tr');
         row.className = 'wrap-row';
         row.innerHTML = `
-            <td class="full-row-cell" colspan="${colSpan}">
+            <td data-col-key="scene" class="break-meta-cell"><div class="break-meta"><span class="break-shots">Total Shots: 0</span><span class="break-scenes">Szenen: –</span></div></td>
+            <td data-col-key="shot" class="full-row-cell" colspan="${mainColSpan}">
                 <div class="full-row-content wrap-row-content">
-                    <div class="full-row-meta">
-                        <div class="break-meta"><span class="break-shots">Total Shots: 0</span><span class="break-scenes">Szenen: –</span></div>
-                        <span class="wrap-label">🎬 WRAP</span>
-                    </div>
+                    <span class="wrap-label">🎬 WRAP</span>
                     <div class="full-row-main">
                         <span class="time-display">--</span>
                         <span class="start-time-cell">--:--</span>
                     </div>
-                    <div class="full-row-actions action-cell">
-                        <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
-                    </div>
                 </div>
+            </td>
+            <td data-col-key="action" class="action-cell">
+                <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
             </td>
         `;
     }
@@ -2560,13 +2536,12 @@ function addStart(data = {}) {
     const row = document.createElement('tr');
     row.className = 'start-row';
     const duration = Number.isFinite(parseInt(data.duration, 10)) ? parseInt(data.duration, 10) : 0;
-    const colSpan = COLUMN_DEFS.length;
+    const mainColSpan = COLUMN_DEFS.length - 2;
     row.innerHTML = `
-        <td class="full-row-cell" colspan="${colSpan}">
+        <td data-col-key="scene" class="break-meta-cell"></td>
+        <td data-col-key="shot" class="full-row-cell" colspan="${mainColSpan}">
             <div class="full-row-content start-row-content">
-                <div class="full-row-meta">
-                    <span class="start-label">START</span>
-                </div>
+                <span class="start-label">START</span>
                 <div class="full-row-main">
                     <div class="start-duration">
                         <label>Briefing/Aufbau</label>
@@ -2575,10 +2550,10 @@ function addStart(data = {}) {
                     <span class="time-display">${duration ? duration + 'm' : '0m'}</span>
                     <span class="start-time-cell">--:--</span>
                 </div>
-                <div class="full-row-actions action-cell">
-                    <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
-                </div>
             </div>
+        </td>
+        <td data-col-key="action" class="action-cell">
+            <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
         </td>
     `;
     enableRowDrag(row);
@@ -2598,27 +2573,26 @@ function addUmbau(data = {}) {
     row.className = 'umbau-row';
     const duration = Number.isFinite(parseInt(data.duration, 10)) ? parseInt(data.duration, 10) : 0;
     const department = data.department || '';
-    const colSpan = COLUMN_DEFS.length;
+    const mainColSpan = COLUMN_DEFS.length - 2;
     row.innerHTML = `
-        <td class="full-row-cell" colspan="${colSpan}">
+        <td data-col-key="scene" class="break-meta-cell"></td>
+        <td data-col-key="shot" class="full-row-cell" colspan="${mainColSpan}">
             <div class="full-row-content umbau-row-content">
-                <div class="full-row-meta">
-                    <span class="umbau-label">UMBAU</span>
-                    <label class="full-row-label">Departement
+                <span class="umbau-label">UMBAU</span>
+                <div class="full-row-main">
+                    <label>Departement
                         <input type="text" placeholder="Departement" class="umbau-department-input" onchange="saveState()" value="${department.replace(/"/g,'&quot;')}">
                     </label>
-                </div>
-                <div class="full-row-main">
-                    <label class="full-row-label">Dauer
+                    <label>Dauer
                         <input type="number" min="0" class="time-input umbau-duration-input" onchange="calculateTime();saveState();">
                     </label>
                     <span class="time-display">0m</span>
                     <span class="start-time-cell">--:--</span>
                 </div>
-                <div class="full-row-actions action-cell">
-                    <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
-                </div>
             </div>
+        </td>
+        <td data-col-key="action" class="action-cell">
+            <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
         </td>
     `;
     enableRowDrag(row);

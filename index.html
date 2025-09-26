@@ -3187,7 +3187,7 @@ function updateSceneSummary(summaryData) {
     const formatScenePartLabel = (sceneValue, part) => {
         const base = extractSceneNumber(sceneValue);
         if (!base) {
-            return `Teil ${part}`;
+            return `${part}`;
         }
         return `${base}.${part}`;
     };
@@ -3250,13 +3250,15 @@ function updateSceneSummary(summaryData) {
             }
             if (totalParts > 1) {
                 const partLabel = formatScenePartLabel(item.scene, item.part);
+                const sceneNumberLabel = extractSceneNumber(item.scene) || partLabel;
                 entries.push({
                     type: 'part',
                     groupType: 'scene',
-                    label: partLabel,
+                    label: sceneNumberLabel,
                     key: sceneKey,
                     indent: 1,
-                    metric: item
+                    metric: item,
+                    partLabel
                 });
             }
         });
@@ -3443,11 +3445,16 @@ function updateSceneSummary(summaryData) {
         if (entry.type === 'part') labelClassNames.push('scene-summary-label-part');
         const labelContent = entry.label || (entry.metric && entry.metric.label) || '—';
 
-        const shotsCount = formatShotsCount(entry);
-        const shotsList = formatShotsList(entry);
-        const timeLabel = formatTimeRange(entry);
-        const durationLabel = formatDurationValue(entry);
-        const locationLabel = formatLocationColumn(entry);
+        let shotsCount = formatShotsCount(entry);
+        let shotsList = formatShotsList(entry);
+        let timeLabel = formatTimeRange(entry);
+        let durationLabel = formatDurationValue(entry);
+        let locationLabel = formatLocationColumn(entry);
+
+        if (entry.type === 'group-header' && entry.groupType === 'scene') {
+            shotsList = '';
+            timeLabel = '';
+        }
 
         const cells = [
             `<td class="scene-summary-label-cell"><div class="${labelClassNames.join(' ')}">${labelContent}</div></td>`,

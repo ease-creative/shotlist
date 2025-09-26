@@ -773,7 +773,25 @@
         .pause-row:hover td {
             background: transparent !important;
         }
-        
+
+        .break-meta-cell {
+            color: #6c757d;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .break-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            align-items: flex-start;
+        }
+
+        .break-meta .break-scenes {
+            font-style: italic;
+            font-weight: 400;
+        }
+
         .wrap-row {
             background: linear-gradient(135deg, #e2e3ff 0%, #c7c8ff 100%) !important;
             border-left: 5px solid #6f42c1 !important;
@@ -1843,6 +1861,20 @@ function formatDurationLabel(totalMinutes) {
     return parts.join(' ');
 }
 
+function updateBreakRowMetadata(row, shotCount, scenesSet) {
+    const container = row.querySelector('.break-meta');
+    if (!container) return;
+    const shotsEl = container.querySelector('.break-shots');
+    const scenesEl = container.querySelector('.break-scenes');
+    if (shotsEl) {
+        shotsEl.textContent = `Shots: ${shotCount}`;
+    }
+    if (scenesEl) {
+        const scenes = Array.from(scenesSet).map(scene => String(scene || '').trim()).filter(scene => scene.length > 0);
+        scenesEl.textContent = scenes.length ? `Szenen: ${scenes.join(', ')}` : 'Szenen: –';
+    }
+}
+
 function updateShotCount(count) {
     const el = document.getElementById('shotCountDisplay');
     if (el) el.textContent = count;
@@ -1934,7 +1966,7 @@ function addPause() {
     const row = document.createElement('tr');
     row.className = 'pause-row';
     row.innerHTML = `
-        <td data-col-key="scene"></td>
+        <td data-col-key="scene" class="break-meta-cell"><div class="break-meta"><span class="break-shots">Shots: 0</span><span class="break-scenes">Szenen: –</span></div></td>
         <td data-col-key="shot"></td>
         <td data-col-key="type"></td>
         <td data-col-key="movement"></td>
@@ -1967,7 +1999,7 @@ function addWrap() {
     const row = document.createElement('tr');
     row.className = 'wrap-row';
     row.innerHTML = `
-        <td data-col-key="scene"></td>
+        <td data-col-key="scene" class="break-meta-cell"><div class="break-meta"><span class="break-shots">Shots: 0</span><span class="break-scenes">Szenen: –</span></div></td>
         <td data-col-key="shot"></td>
         <td data-col-key="type"></td>
         <td data-col-key="movement"></td>
@@ -2080,14 +2112,19 @@ function calculateTime() {
     if (!tbody) return;
     let total = 0;
     let shotCount = 0;
+    const scenesSet = new Set();
     const startMinutes = parseStartMinutes();
     let currentStart = startMinutes;
     Array.from(tbody.rows).forEach(row => {
         let rowDuration = 0;
         if (row.classList.contains('shot-row')) {
             shotCount += 1;
+            const sceneInput = row.querySelector('.scene-number input');
+            const sceneValue = sceneInput ? sceneInput.value.trim() : '';
+            if (sceneValue) scenesSet.add(sceneValue);
         }
         if (row.classList.contains('pause-row')) {
+            updateBreakRowMetadata(row, shotCount, scenesSet);
             const pause = row.querySelector('input[type="number"]');
             const v = parseInt(pause ? pause.value : 0, 10) || 0;
             const display = row.querySelector('.time-display');
@@ -2106,6 +2143,7 @@ function calculateTime() {
             if (display) display.textContent = v + 'm';
             rowDuration = v;
         } else if (row.classList.contains('wrap-row')) {
+            updateBreakRowMetadata(row, shotCount, scenesSet);
             rowDuration = 0;
             const display = row.querySelector('.time-display');
             if (display) display.textContent = '--';

@@ -879,17 +879,20 @@
         
         .reference-cell {
             text-align: center;
+            padding: 0;
         }
         
         .reference-upload {
             position: relative;
+            width: 100%;
+            height: 100%;
             display: flex;
-            flex-direction: column;
             align-items: center;
-            gap: 5px;
+            justify-content: center;
+            min-height: 120px;
         }
-        
-        .upload-btn {
+
+        .reference-upload .upload-btn {
             background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
             color: white;
             border: none;
@@ -899,36 +902,39 @@
             font-size: 12px;
             font-weight: 600;
             transition: transform 0.2s;
+            margin: 0 auto;
         }
-        
-        .upload-btn:hover {
+
+        .reference-upload .upload-btn:hover {
             transform: translateY(-1px);
         }
-        
-        .image-preview {
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 3px;
+
+        .reference-upload.has-image .upload-btn {
+            display: none;
         }
-        
-        .remove-btn {
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
+
+        .reference-upload .image-preview {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: stretch;
+            justify-content: stretch;
+        }
+
+        .reference-upload .image-preview img.reference-thumbnail {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 4px;
             cursor: pointer;
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            transition: transform 0.2s ease;
         }
-        
-        .remove-btn:hover {
-            background: #c82333;
+
+        .reference-upload .image-preview img.reference-thumbnail:hover,
+        .reference-upload .image-preview img.reference-thumbnail:focus-visible {
+            transform: scale(1.02);
+            outline: 2px solid rgba(40,167,69,0.4);
+            outline-offset: 2px;
         }
         
         .duplicate-btn {
@@ -1274,6 +1280,83 @@
             color: #6c757d;
         }
 
+        .image-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 30px;
+            z-index: 2200;
+        }
+
+        .image-overlay.active {
+            display: flex;
+        }
+
+        .image-overlay-content {
+            position: relative;
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
+            max-width: min(92vw, 960px);
+            max-height: 90vh;
+            padding: 20px 20px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .image-overlay-content img {
+            max-width: calc(90vw - 140px);
+            max-height: calc(90vh - 140px);
+            object-fit: contain;
+            border-radius: 10px;
+        }
+
+        .image-overlay-actions {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .image-overlay-btn {
+            border: none;
+            border-radius: 999px;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+        }
+
+        .image-overlay-btn.replace {
+            background: #1c7ed6;
+            color: #fff;
+        }
+
+        .image-overlay-btn.replace:hover {
+            background: #1971c2;
+            transform: translateY(-1px);
+        }
+
+        .image-overlay-btn.delete {
+            background: #f03e3e;
+            color: #fff;
+        }
+
+        .image-overlay-btn.delete:hover {
+            background: #e03131;
+            transform: translateY(-1px);
+        }
+
+        body.image-overlay-open {
+            overflow: hidden;
+        }
+
         .column-overlay-label {
             flex: 1;
             font-weight: 500;
@@ -1535,6 +1618,16 @@
         <div class="column-overlay-content">
             <h3>Spalten</h3>
             <div id="columnOverlayList" class="column-overlay-list"></div>
+        </div>
+    </div>
+
+    <div id="imageOverlay" class="image-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="image-overlay-content">
+            <div class="image-overlay-actions">
+                <button type="button" class="image-overlay-btn replace" id="imageOverlayReplace">Bild ersetzen</button>
+                <button type="button" class="image-overlay-btn delete" id="imageOverlayDelete">Bild löschen</button>
+            </div>
+            <img id="imageOverlayPreview" alt="Referenzbild Vorschau">
         </div>
     </div>
 
@@ -1965,6 +2058,15 @@ function loadSnapshot(snapshot) {
     }
     updateVersionSelect();
     calculateTime();
+    document.querySelectorAll('.reference-upload').forEach(upload => {
+        const img = upload.querySelector('.image-preview img');
+        if (img) {
+            upload.classList.add('has-image');
+            attachReferenceThumbnail(img);
+        } else {
+            upload.classList.remove('has-image');
+        }
+    });
     document.querySelectorAll('textarea.auto-grow').forEach(autoGrow);
     return true;
 }
@@ -2145,6 +2247,7 @@ let lastSelectedAnchor = null;
 let draggingRows = [];
 let sceneSummaryMode = 'scene';
 let lastSceneSummaryData = { aggregated: new Map(), segments: [] };
+let activeImagePreview = null;
 
 const COLUMN_SETTINGS_KEY = 'shotlist-column-settings';
 
@@ -2367,7 +2470,7 @@ function handleRowClick(event) {
     const row = event.currentTarget;
     if (isRestoringState) return;
     const isModifier = event.metaKey || event.ctrlKey || event.shiftKey;
-    const interactive = event.target.closest('button, input, textarea, select, label, .upload-btn');
+    const interactive = event.target.closest('button, input, textarea, select, label, .upload-btn, .reference-thumbnail');
     if (interactive && !isModifier) {
         lastSelectedAnchor = row;
         return;
@@ -2435,6 +2538,9 @@ function moveDraggingRows(tbody, afterElement) {
 function deleteRow(btn) {
     const row = btn ? btn.closest('tr') : null;
     if (!row) return;
+    if (activeImagePreview && row.contains(activeImagePreview)) {
+        closeImageOverlay();
+    }
     removeRowSelection(row);
     row.remove();
     calculateTime();
@@ -3340,15 +3446,143 @@ function duplicateRow(btn) {
     }
 }
 
+function attachReferenceThumbnail(img) {
+    if (!img || img.dataset.overlayBound === '1') return;
+    img.dataset.overlayBound = '1';
+    if (!img.hasAttribute('tabindex')) {
+        img.setAttribute('tabindex', '0');
+    }
+    img.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openImageOverlay(img);
+    });
+    img.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openImageOverlay(img);
+        }
+    });
+}
+
+function clearReferenceImage(upload, { skipSave = false } = {}) {
+    if (!upload) return;
+    const preview = upload.querySelector('.image-preview');
+    if (preview) {
+        preview.innerHTML = '';
+    }
+    upload.classList.remove('has-image');
+    const button = upload.querySelector('.upload-btn');
+    if (button) {
+        button.style.display = '';
+    }
+    const input = upload.querySelector('input[type="file"]');
+    if (input) {
+        input.value = '';
+        delete input.dataset.imageData;
+    }
+    if (!skipSave) {
+        populatePrintReferences();
+        saveState();
+    }
+}
+
+function openImageOverlay(img) {
+    const overlay = document.getElementById('imageOverlay');
+    const overlayImg = document.getElementById('imageOverlayPreview');
+    if (!overlay || !overlayImg || !img) return;
+    activeImagePreview = img;
+    overlayImg.src = img.src || '';
+    overlay.classList.add('active');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('image-overlay-open');
+    const replaceBtn = document.getElementById('imageOverlayReplace');
+    if (replaceBtn) {
+        replaceBtn.focus();
+    }
+}
+
+function closeImageOverlay() {
+    const overlay = document.getElementById('imageOverlay');
+    if (!overlay || !overlay.classList.contains('active')) {
+        activeImagePreview = null;
+        return;
+    }
+    overlay.classList.remove('active');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('image-overlay-open');
+    const overlayImg = document.getElementById('imageOverlayPreview');
+    if (overlayImg) {
+        overlayImg.removeAttribute('src');
+    }
+    const target = activeImagePreview;
+    activeImagePreview = null;
+    if (target && typeof target.focus === 'function' && document.body.contains(target)) {
+        setTimeout(() => target.focus(), 0);
+    }
+}
+
+function handleOverlayReplace() {
+    if (!activeImagePreview) return;
+    const upload = activeImagePreview.closest('.reference-upload');
+    if (!upload) return;
+    const input = upload.querySelector('input[type="file"]');
+    if (!input) return;
+    input.click();
+}
+
+function handleOverlayDelete() {
+    if (!activeImagePreview) return;
+    const upload = activeImagePreview.closest('.reference-upload');
+    if (!upload) return;
+    clearReferenceImage(upload, { skipSave: true });
+    closeImageOverlay();
+    populatePrintReferences();
+    saveState();
+}
+
+function handleGlobalOverlayKeydown(event) {
+    if (event.key === 'Escape') {
+        const overlay = document.getElementById('imageOverlay');
+        if (overlay && overlay.classList.contains('active')) {
+            closeImageOverlay();
+        }
+    }
+}
+
 function handleImageUpload(input) {
     const file = input.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = function(e) {
-        const preview = input.parentElement.querySelector('.image-preview');
-        preview.innerHTML = `<img src="${e.target.result}" style="max-width:60px;max-height:60px;display:block;margin:0 auto;"><button class="remove-btn" onclick="this.parentElement.innerHTML=''">✕</button>`;
+        const upload = input.closest('.reference-upload');
+        if (!upload) return;
+        const preview = upload.querySelector('.image-preview');
+        if (!preview) return;
+        const dataUrl = e.target.result;
+        upload.classList.add('has-image');
+        preview.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = dataUrl;
+        img.alt = 'Referenzbild';
+        img.className = 'reference-thumbnail';
+        attachReferenceThumbnail(img);
+        preview.appendChild(img);
+        const button = upload.querySelector('.upload-btn');
+        if (button) button.style.display = '';
+        input.dataset.imageData = dataUrl;
+        if (activeImagePreview && activeImagePreview.closest('.reference-upload') === upload) {
+            const overlayImg = document.getElementById('imageOverlayPreview');
+            if (overlayImg) {
+                overlayImg.src = dataUrl;
+            }
+            activeImagePreview = img;
+        }
+        populatePrintReferences();
+        saveState();
     };
     reader.readAsDataURL(file);
+    input.value = '';
 }
 
 function clearAll() {
@@ -3356,6 +3590,7 @@ function clearAll() {
     const previousState = localStorage.getItem(CURRENT_STATE_KEY);
     lastResetState = previousState;
     const tbody = document.getElementById('shotlistBody');
+    closeImageOverlay();
     if (tbody) tbody.innerHTML = '';
     clearSelection();
     lastEditedRow = null;
@@ -3545,6 +3780,32 @@ window.onload = function() {
         sceneSummaryToggle.addEventListener('click', toggleSceneSummaryMode);
     }
     updateSceneSummaryToggleLabel();
+    const imageOverlay = document.getElementById('imageOverlay');
+    if (imageOverlay) {
+        imageOverlay.addEventListener('click', (evt) => {
+            if (evt.target === imageOverlay) {
+                closeImageOverlay();
+            }
+        });
+    }
+    const overlayReplaceBtn = document.getElementById('imageOverlayReplace');
+    if (overlayReplaceBtn) {
+        overlayReplaceBtn.addEventListener('click', handleOverlayReplace);
+    }
+    const overlayDeleteBtn = document.getElementById('imageOverlayDelete');
+    if (overlayDeleteBtn) {
+        overlayDeleteBtn.addEventListener('click', handleOverlayDelete);
+    }
+    document.addEventListener('keydown', handleGlobalOverlayKeydown);
+    document.querySelectorAll('.reference-upload').forEach(upload => {
+        const img = upload.querySelector('.image-preview img');
+        if (img) {
+            upload.classList.add('has-image');
+            attachReferenceThumbnail(img);
+        } else {
+            upload.classList.remove('has-image');
+        }
+    });
     // Inputs speichern
     [
         'clientName','productionTitle','location','director','date','cinematographer','agency','startTime','wrapTime'

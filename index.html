@@ -2410,19 +2410,55 @@ function buildSelectOptions(options, selected, placeholder = '', keepUnknown = t
     return entries.map(opt => `<option value="${opt.value}" ${opt.value===value ? 'selected' : ''}>${opt.label}</option>`).join('');
 }
 
+function normalizeVersionSeed() {
+    return (Date.now() + Math.random()).toString(36);
+}
+
+function normalizeStoredVersion(entry) {
+    const normalized = entry && typeof entry === 'object' ? {...entry} : {};
+    if (!normalized.id) {
+        normalized.id = normalizeVersionSeed();
+    } else {
+        normalized.id = String(normalized.id);
+    }
+    if (typeof normalized.name !== 'string') {
+        normalized.name = '';
+    } else {
+        normalized.name = normalized.name.trim();
+    }
+    if (typeof normalized.date !== 'string') {
+        normalized.date = '';
+    } else {
+        normalized.date = normalized.date.trim();
+    }
+    if (typeof normalized.state !== 'string') {
+        normalized.state = '';
+    }
+    return normalized;
+}
+
 function getVersions() {
-    const stored = JSON.parse(localStorage.getItem(VERSION_STORAGE_KEY) || '[]');
-    if (!Array.isArray(stored)) return [];
+    let stored;
+    try {
+        stored = JSON.parse(localStorage.getItem(VERSION_STORAGE_KEY) || '[]');
+    } catch (err) {
+        console.error('Version list konnte nicht gelesen werden.', err);
+        stored = [];
+    }
+    if (!Array.isArray(stored)) stored = [];
     let mutated = false;
-    const versions = stored.map(v => {
-        if (!v.id) {
-            mutated = true;
-            return {
-                ...v,
-                id: (Date.now() + Math.random()).toString(36)
-            };
+    const versions = stored.map(item => {
+        const normalized = normalizeStoredVersion(item);
+        if (!mutated) {
+            const orig = item && typeof item === 'object' ? item : {};
+            if (String(orig.id) !== normalized.id ||
+                (typeof orig.name !== 'string' ? '' : orig.name) !== normalized.name ||
+                (typeof orig.date !== 'string' ? '' : orig.date) !== normalized.date ||
+                (typeof orig.state !== 'string' ? '' : orig.state) !== normalized.state) {
+                mutated = true;
+            }
         }
-        return v;
+        return normalized;
     });
     if (mutated) {
         setVersions(versions);
@@ -2431,16 +2467,18 @@ function getVersions() {
 }
 
 function setVersions(versions) {
-    localStorage.setItem(VERSION_STORAGE_KEY, JSON.stringify(versions));
+    try {
+        localStorage.setItem(VERSION_STORAGE_KEY, JSON.stringify(versions));
+        return true;
+    } catch (err) {
+        console.error('Versionen konnten nicht gespeichert werden.', err);
+        return false;
+    }
 }
 
 function normalizeVersionEntry(entry) {
     if (!entry) return null;
-    const normalized = Object.assign({}, entry);
-    if (!normalized.id) {
-        normalized.id = (Date.now() + Math.random()).toString(36);
-    }
-    normalized.id = String(normalized.id);
+    const normalized = normalizeStoredVersion(entry);
     return normalized;
 }
 
@@ -3965,15 +4003,28 @@ function handleVersionFormSubmit(evt) {
         return;
     }
     const versions = getVersions();
-    if (versions.some(v => v.name.toLowerCase() === name.toLowerCase())) {
+    const desiredName = name.toLowerCase();
+    if (versions.some(v => {
+        if (!v || typeof v.name !== 'string') return false;
+        const existing = v.name.trim().toLowerCase();
+        return existing && existing === desiredName;
+    })) {
         showNotification('Es existiert bereits eine Version mit diesem Namen.', true);
         input.focus();
         input.select();
         return;
     }
     const id = Date.now().toString();
-    versions.push({id, name, date: new Date().toISOString(), state});
-    setVersions(versions);
+    versions.push({
+        id,
+        name: name,
+        date: new Date().toISOString(),
+        state
+    });
+    if (!setVersions(versions)) {
+        showNotification('Version konnte nicht gespeichert werden (Speicher voll?)', true);
+        return;
+    }
     setActiveVersion(id);
     updateVersionSelect();
     showNotification('Version gespeichert!');
@@ -3989,7 +4040,14 @@ function updateVersionSelect() {
     versions.forEach(v => {
         const opt = document.createElement('option');
         opt.value = v.id;
-        opt.textContent = `${v.name} (${v.date.substr(0,10)})`;
+        const labelName = (v && typeof v.name === 'string' && v.name.trim().length)
+            ? v.name.trim()
+            : 'Unbenannte Version';
+        let dateLabel = '–';
+        if (v && typeof v.date === 'string' && v.date.trim().length) {
+            dateLabel = v.date.substring(0, 10);
+        }
+        opt.textContent = `${labelName} (${dateLabel})`;
         select.appendChild(opt);
     });
     if (active && versions.some(v => String(v.id) === String(active))) {

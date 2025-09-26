@@ -792,6 +792,10 @@
             font-weight: normal;
         }
 
+        .scene-summary-duration .duration-negative {
+            font-style: italic;
+        }
+
         .scene-summary-location {
             white-space: normal;
             color: var(--color-text-primary);
@@ -3461,6 +3465,12 @@ function updateSceneSummary(summaryData) {
             const netMinutes = computeWrapNetMinutes(entry.metric);
             if (netMinutes == null) return '—';
             return formatDurationLabel(netMinutes);
+        }
+        if (entry && entry.type === 'special' && entry.metric && entry.metric.specialType === 'pause') {
+            const minutes = entry.metric.duration;
+            if (minutes == null) return '<span class="duration-negative">-—</span>';
+            const label = formatDurationLabel(minutes);
+            return `<span class="duration-negative">-${label}</span>`;
         }
         const minutes = entry && entry.metric ? entry.metric.duration : null;
         return formatDurationLabel(minutes);

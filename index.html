@@ -2216,8 +2216,21 @@ function updateBreakRowMetadata(row, shotCount, scenesSet) {
         shotsEl.textContent = `${label}: ${shotCount}`;
     }
     if (scenesEl) {
-        const scenes = Array.from(scenesSet).map(scene => String(scene || '').trim()).filter(scene => scene.length > 0);
-        scenesEl.textContent = scenes.length ? `Szenen: ${scenes.join(', ')}` : 'Szenen: –';
+        const scenes = Array.from(scenesSet)
+            .map(scene => String(scene || '').trim())
+            .filter(scene => scene.length > 0);
+        const uniqueScenes = Array.from(new Set(scenes));
+        uniqueScenes.sort((a, b) => {
+            const numA = parseFloat(a);
+            const numB = parseFloat(b);
+            const validA = !Number.isNaN(numA);
+            const validB = !Number.isNaN(numB);
+            if (validA && validB) return numA - numB;
+            if (validA) return -1;
+            if (validB) return 1;
+            return a.localeCompare(b, 'de', {numeric: true});
+        });
+        scenesEl.textContent = uniqueScenes.length ? `Szenen: ${uniqueScenes.join(', ')}` : 'Szenen: –';
     }
 }
 

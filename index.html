@@ -637,7 +637,12 @@
         .shotlist-table tbody tr:hover td {
             background: #f8f9fa;
         }
-        
+
+        tr.row-selected {
+            outline: 2px solid rgba(74,144,226,0.6);
+            outline-offset: -2px;
+        }
+
         .shotlist-table input, .shotlist-table select, .shotlist-table textarea {
             width: 100%;
             border: 1px solid #ced4da;
@@ -934,6 +939,10 @@
             gap: 10px;
             min-width: 140px;
             justify-content: flex-start;
+        }
+
+        .full-row-left:empty {
+            display: none;
         }
 
         .full-row-left:empty {
@@ -1380,7 +1389,7 @@
                     <td data-col-key="total" class="time-display col-total">0m</td>
                     <td data-col-key="time" class="start-time-cell col-start">--:--</td>
                     <td data-col-key="action" class="action-cell col-action">
-                        <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
+                        <button class="action-btn delete-btn" onclick="deleteRow(this)">🗑️</button>
                         <button class="action-btn duplicate-btn" onclick="duplicateRow(this)">⧉</button>
                     </td>
                 </tr>
@@ -1760,6 +1769,7 @@ function loadSnapshot(snapshot) {
     const meta = snapshot.meta || {};
     const columns = snapshot.columns;
     const existingVersions = getVersions();
+    clearSelection();
     lastEditedRow = null;
     isRestoringState = true;
     try {
@@ -2023,6 +2033,10 @@ let columnOverlayVisible = false;
 let columnSettings = null;
 let printCleanupTasks = [];
 let lastEditedRow = null;
+let suppressActiveVersionUpdate = false;
+let selectedRows = new Set();
+let lastSelectedAnchor = null;
+let draggingRows = [];
 
 const COLUMN_SETTINGS_KEY = 'shotlist-column-settings';
 
@@ -2134,38 +2148,46 @@ function enableRowDrag(row) {
 }
 
 function handleRowDragStart(event) {
-    draggedRow = event.currentTarget;
-    draggedRow.classList.add('dragging');
+    const row = event.currentTarget;
+    const tbody = row.parentNode;
+    if (!tbody) return;
+    let rowsToDrag;
+    if (selectedRows.has(row) && selectedRows.size > 1) {
+        rowsToDrag = Array.from(selectedRows).filter(r => r && r.parentNode === tbody && r.draggable);
+    } else {
+        clearSelection();
+        selectRow(row);
+        lastSelectedAnchor = row;
+        rowsToDrag = [row];
+    }
+    rowsToDrag = rowsToDrag.filter(r => r && r.parentNode === tbody && r.draggable);
+    if (!rowsToDrag.length) return;
+    rowsToDrag.sort(compareRowPosition);
+    draggingRows = rowsToDrag;
+    draggingRows.forEach(r => r.classList.add('dragging'));
+    draggedRow = row;
     if (event.dataTransfer) {
         event.dataTransfer.effectAllowed = 'move';
-        // Firefox requires dataTransfer data to be set
         event.dataTransfer.setData('text/plain', '');
     }
 }
 
 function handleRowDragEnd() {
-    if (!draggedRow) return;
-    draggedRow.classList.remove('dragging');
+    if (draggingRows.length) {
+        draggingRows.forEach(row => row.classList.remove('dragging'));
+    }
+    draggingRows = [];
     draggedRow = null;
     calculateTime();
     saveState();
 }
 
 function handleTableDragOver(event) {
-    if (!draggedRow) return;
+    if (!draggingRows.length) return;
     event.preventDefault();
     const tbody = event.currentTarget;
     const afterElement = getDragAfterElement(tbody, event.clientY);
-    const wrapRow = getWrapRow();
-    if (afterElement == null) {
-        if (wrapRow && wrapRow.parentNode === tbody) {
-            tbody.insertBefore(draggedRow, wrapRow);
-        } else {
-            tbody.appendChild(draggedRow);
-        }
-    } else if (afterElement !== draggedRow && afterElement !== wrapRow) {
-        tbody.insertBefore(draggedRow, afterElement);
-    }
+    moveDraggingRows(tbody, afterElement);
 }
 
 function getDragAfterElement(container, y) {
@@ -2178,6 +2200,143 @@ function getDragAfterElement(container, y) {
         }
         return closest;
     }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+}
+
+function registerRow(row) {
+    if (!row || row.dataset.selectionBound === '1') return;
+    row.dataset.selectionBound = '1';
+    row.classList.remove('row-selected');
+    row.addEventListener('click', handleRowClick);
+}
+
+function selectRow(row) {
+    if (!row) return;
+    if (!selectedRows.has(row)) {
+        selectedRows.add(row);
+    }
+    row.classList.add('row-selected');
+}
+
+function deselectRow(row) {
+    if (!row) return;
+    if (selectedRows.has(row)) {
+        selectedRows.delete(row);
+    }
+    row.classList.remove('row-selected');
+    if (lastSelectedAnchor === row) {
+        lastSelectedAnchor = null;
+    }
+    if (!lastSelectedAnchor && selectedRows.size) {
+        lastSelectedAnchor = selectedRows.values().next().value;
+    }
+}
+
+function removeRowSelection(row) {
+    if (!row) return;
+    if (selectedRows.has(row)) {
+        deselectRow(row);
+    }
+    if (draggingRows.length) {
+        draggingRows = draggingRows.filter(r => r !== row);
+    }
+    if (!lastSelectedAnchor && selectedRows.size) {
+        lastSelectedAnchor = selectedRows.values().next().value;
+    }
+}
+
+function clearSelection() {
+    if (selectedRows.size === 0) return;
+    selectedRows.forEach(row => row.classList.remove('row-selected'));
+    selectedRows.clear();
+    lastSelectedAnchor = null;
+}
+
+function getOrderedRows(tbody) {
+    return Array.from(tbody ? tbody.querySelectorAll('tr') : []);
+}
+
+function handleRowClick(event) {
+    const row = event.currentTarget;
+    if (isRestoringState) return;
+    const isModifier = event.metaKey || event.ctrlKey || event.shiftKey;
+    const interactive = event.target.closest('button, input, textarea, select, label, .upload-btn');
+    if (interactive && !isModifier) {
+        lastSelectedAnchor = row;
+        return;
+    }
+    const tbody = row.parentNode;
+    if (!tbody) return;
+
+    if (event.shiftKey && lastSelectedAnchor && lastSelectedAnchor.parentNode === tbody) {
+        const rows = getOrderedRows(tbody);
+        const startIndex = rows.indexOf(lastSelectedAnchor);
+        const endIndex = rows.indexOf(row);
+        if (startIndex !== -1 && endIndex !== -1) {
+            const [from, to] = startIndex < endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
+            clearSelection();
+            for (let i = from; i <= to; i++) {
+                selectRow(rows[i]);
+            }
+        } else {
+            clearSelection();
+            selectRow(row);
+        }
+    } else if (event.metaKey || event.ctrlKey) {
+        if (selectedRows.has(row)) {
+            deselectRow(row);
+        } else {
+            selectRow(row);
+        }
+    } else {
+        if (!(selectedRows.size === 1 && selectedRows.has(row))) {
+            clearSelection();
+            selectRow(row);
+        }
+    }
+    lastSelectedAnchor = row;
+}
+
+function compareRowPosition(a, b) {
+    if (a === b) return 0;
+    const position = a.compareDocumentPosition(b);
+    if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+    if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+    return 0;
+}
+
+function moveDraggingRows(tbody, afterElement) {
+    const wrapRow = getWrapRow();
+    const rows = draggingRows.filter(row => row.parentNode === tbody);
+    if (!rows.length) return;
+    let reference = afterElement;
+    if (!reference) {
+        reference = wrapRow && wrapRow.parentNode === tbody ? wrapRow : null;
+    }
+    if (reference && rows.includes(reference)) {
+        return;
+    }
+    const fragment = document.createDocumentFragment();
+    rows.forEach(row => fragment.appendChild(row));
+    if (reference) {
+        tbody.insertBefore(fragment, reference);
+    } else {
+        tbody.appendChild(fragment);
+    }
+}
+
+function deleteRow(btn) {
+    const row = btn ? btn.closest('tr') : null;
+    if (!row) return;
+    removeRowSelection(row);
+    row.remove();
+    calculateTime();
+    saveState();
+}
+
+function handleDocumentClick(event) {
+    if (event.target.closest('#shotlistBody tr')) return;
+    if (draggingRows.length) return;
+    clearSelection();
 }
 
 function handleFieldEdited(event) {
@@ -2526,7 +2685,9 @@ function addShot(data = {}) {
     if (startCell) startCell.textContent = '--:--';
 
     enableRowDrag(row);
+    registerRow(row);
     insertRowBeforeWrap(row);
+    registerRow(row);
     if (columnSettings) applyColumnSettings(columnSettings);
     row.querySelectorAll('textarea.auto-grow').forEach(autoGrow);
     if (!isRestoringState) {
@@ -2557,10 +2718,11 @@ function addPause() {
             </div>
         </td>
         <td data-col-key="action" class="action-cell">
-            <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
+            <button class="action-btn delete-btn" onclick="deleteRow(this)">🗑️</button>
         </td>
     `;
     enableRowDrag(row);
+    registerRow(row);
     insertRowBeforeWrap(row);
     if (columnSettings) applyColumnSettings(columnSettings);
     if (!isRestoringState) {
@@ -2590,13 +2752,15 @@ function addWrap() {
                 </div>
             </td>
             <td data-col-key="action" class="action-cell">
-                <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
+                <button class="action-btn delete-btn" onclick="deleteRow(this)">🗑️</button>
             </td>
         `;
+        registerRow(row);
     }
     row.classList.remove('draggable-row');
     row.removeAttribute('draggable');
     tbody.appendChild(row);
+    registerRow(row);
     if (columnSettings) applyColumnSettings(columnSettings);
     if (!isRestoringState) {
         calculateTime();
@@ -2628,10 +2792,11 @@ function addStart(data = {}) {
             </div>
         </td>
         <td data-col-key="action" class="action-cell">
-            <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
+            <button class="action-btn delete-btn" onclick="deleteRow(this)">🗑️</button>
         </td>
     `;
     enableRowDrag(row);
+    registerRow(row);
     insertRowBeforeWrap(row);
     const durationInput = row.querySelector('.start-duration-input');
     if (durationInput) durationInput.value = duration;
@@ -2669,10 +2834,11 @@ function addUmbau(data = {}) {
             </div>
         </td>
         <td data-col-key="action" class="action-cell">
-            <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
+            <button class="action-btn delete-btn" onclick="deleteRow(this)">🗑️</button>
         </td>
     `;
     enableRowDrag(row);
+    registerRow(row);
     insertUmbauRowAtPosition(row);
     const deptInput = row.querySelector('.umbau-department-input');
     if (deptInput) deptInput.value = department;
@@ -2874,6 +3040,7 @@ function clearAll() {
     lastResetState = previousState;
     const tbody = document.getElementById('shotlistBody');
     if (tbody) tbody.innerHTML = '';
+    clearSelection();
     lastEditedRow = null;
     calculateTime();
     saveState();
@@ -3078,6 +3245,8 @@ window.onload = function() {
         }
     });
     document.querySelectorAll('textarea.auto-grow').forEach(autoGrow);
+    document.querySelectorAll('#shotlistBody tr').forEach(registerRow);
+    document.addEventListener('click', handleDocumentClick);
 };
     </script>
     

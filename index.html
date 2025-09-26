@@ -647,6 +647,37 @@
             white-space: nowrap;
         }
 
+        .scene-summary-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .scene-summary-toggle {
+            background: #e9ecef;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #495057;
+            cursor: pointer;
+            transition: background 0.2s ease, border-color 0.2s ease;
+        }
+
+        .scene-summary-toggle:hover {
+            background: #dee2e6;
+            border-color: #adb5bd;
+        }
+
+        .scene-summary-toggle[aria-pressed='true'] {
+            background: #d1e7ff;
+            border-color: #74c0fc;
+            color: #1c7ed6;
+        }
+
         .shotlist-table {
             width: 100%;
             border-collapse: collapse;
@@ -1454,7 +1485,10 @@
         </div>
 
         <section id="sceneSummary" class="scene-summary" aria-live="polite">
-            <h3>Szenen-Übersicht</h3>
+            <div class="scene-summary-header">
+                <h3>Szenen-Übersicht</h3>
+                <button type="button" id="sceneSummaryToggle" class="scene-summary-toggle" aria-pressed="false">Sortieren nach: Szenen</button>
+            </div>
             <div class="scene-summary-body empty">Keine Szenen erfasst.</div>
         </section>
 
@@ -2099,6 +2133,8 @@ let suppressActiveVersionUpdate = false;
 let selectedRows = new Set();
 let lastSelectedAnchor = null;
 let draggingRows = [];
+let sceneSummaryMode = 'scene';
+let lastSceneSummaryData = { aggregated: new Map(), segments: [] };
 
 const COLUMN_SETTINGS_KEY = 'shotlist-column-settings';
 
@@ -2653,26 +2689,68 @@ function triggerPrint() {
     }, 50);
 }
 
-function updateSceneSummary(sceneMetrics) {
+function updateSceneSummaryToggleLabel() {
+    const toggle = document.getElementById('sceneSummaryToggle');
+    if (!toggle) return;
+    if (sceneSummaryMode === 'plan') {
+        toggle.textContent = 'Sortieren nach: Drehplan';
+        toggle.setAttribute('aria-label', 'Sortierung nach Drehplan. Klicken für Szenenreihenfolge.');
+        toggle.setAttribute('aria-pressed', 'true');
+    } else {
+        toggle.textContent = 'Sortieren nach: Szenen';
+        toggle.setAttribute('aria-label', 'Sortierung nach Szenen. Klicken für Drehplan-Reihenfolge.');
+        toggle.setAttribute('aria-pressed', 'false');
+    }
+}
+
+function toggleSceneSummaryMode() {
+    sceneSummaryMode = sceneSummaryMode === 'scene' ? 'plan' : 'scene';
+    updateSceneSummaryToggleLabel();
+    updateSceneSummary(lastSceneSummaryData);
+}
+
+function updateSceneSummary(summaryData) {
+    if (!summaryData || typeof summaryData !== 'object') {
+        lastSceneSummaryData = { aggregated: new Map(), segments: [] };
+    } else {
+        const aggregated = summaryData.aggregated instanceof Map ? summaryData.aggregated : new Map();
+        const segments = Array.isArray(summaryData.segments) ? summaryData.segments : [];
+        lastSceneSummaryData = { aggregated, segments };
+    }
     const container = document.getElementById('sceneSummary');
     if (!container) return;
     const body = container.querySelector('.scene-summary-body');
     if (!body) return;
 
-    const entries = Array.from((sceneMetrics instanceof Map ? sceneMetrics.values() : [])).filter(metric => metric && metric.count);
+    updateSceneSummaryToggleLabel();
+
+    const aggregatedEntries = Array.from(lastSceneSummaryData.aggregated.values());
+    const segmentEntries = lastSceneSummaryData.segments.slice ? lastSceneSummaryData.segments.slice() : [];
+    let entries;
+    if (sceneSummaryMode === 'plan') {
+        entries = segmentEntries;
+    } else {
+        const collator = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
+        aggregatedEntries.sort((a, b) => {
+            const keyA = a && a.key ? a.key : '';
+            const keyB = b && b.key ? b.key : '';
+            const blankA = keyA === '__blank__' || keyA === '';
+            const blankB = keyB === '__blank__' || keyB === '';
+            if (blankA && blankB) return 0;
+            if (blankA) return 1;
+            if (blankB) return -1;
+            return collator.compare(a.scene || '', b.scene || '');
+        });
+        entries = aggregatedEntries;
+    }
+
+    entries = (entries || []).filter(metric => metric && metric.count);
+
     if (!entries.length) {
         body.classList.add('empty');
         body.textContent = 'Keine Szenen erfasst.';
         return;
     }
-
-    const collator = new Intl.Collator('de', {numeric: true, sensitivity: 'base'});
-    entries.sort((a, b) => {
-        if (a.key === '__blank__' && b.key === '__blank__') return 0;
-        if (a.key === '__blank__') return 1;
-        if (b.key === '__blank__') return -1;
-        return collator.compare(a.scene, b.scene);
-    });
 
     const table = document.createElement('table');
     table.className = 'scene-summary-table';
@@ -2690,14 +2768,20 @@ function updateSceneSummary(sceneMetrics) {
     const tbody = table.querySelector('tbody');
 
     entries.forEach(metric => {
-        const sceneLabel = metric.scene ? `Scene ${metric.scene}` : 'Scene —';
-        const shotList = metric.shots.filter(Boolean).join(', ');
+        if (!metric) return;
+        const sceneLabelBase = metric.scene ? `Scene ${metric.scene}` : 'Scene —';
+        const sceneLabel = sceneSummaryMode === 'plan' && metric.part
+            ? `${sceneLabelBase} – Teil ${metric.part}`
+            : sceneLabelBase;
+        const shotsList = Array.isArray(metric.shots) && metric.shots.length
+            ? metric.shots.join(', ')
+            : '—';
         const durationLabel = formatDurationLabel(metric.duration);
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${sceneLabel}</td>
-            <td class="scene-summary-shots">${metric.count}</td>
-            <td>${shotList || '—'}</td>
+            <td class="scene-summary-shots">${metric.count || 0}</td>
+            <td>${shotsList}</td>
             <td class="scene-summary-duration">${durationLabel}</td>
         `;
         tbody.appendChild(row);
@@ -2975,13 +3059,17 @@ function calculateTime() {
     let shotCount = 0;
     const scenesSet = new Set();
     const sceneMetrics = new Map();
+    const sceneSegments = [];
+    const segmentPartCounters = new Map();
+    let currentSegment = null;
     const startMinutes = parseStartMinutes();
     let currentStart = startMinutes;
     Array.from(tbody.rows).forEach(row => {
         let rowDuration = 0;
         let sceneValueForRow = '';
         let shotLabelForRow = '';
-        if (row.classList.contains('shot-row')) {
+        const isShotRow = row.classList.contains('shot-row');
+        if (isShotRow) {
             shotCount += 1;
             const sceneInput = row.querySelector('.scene-number input');
             sceneValueForRow = sceneInput ? sceneInput.value.trim() : '';
@@ -2996,23 +3084,27 @@ function calculateTime() {
             const display = row.querySelector('.time-display');
             if (display) display.textContent = v + 'm';
             rowDuration = v;
+            currentSegment = null;
         } else if (row.classList.contains('umbau-row')) {
             const input = row.querySelector('.umbau-duration-input');
             const v = parseInt(input ? input.value : 0, 10) || 0;
             const display = row.querySelector('.time-display');
             if (display) display.textContent = v + 'm';
             rowDuration = v;
+            currentSegment = null;
         } else if (row.classList.contains('start-row')) {
             const input = row.querySelector('.start-duration-input');
             const v = parseInt(input ? input.value : 0, 10) || 0;
             const display = row.querySelector('.time-display');
             if (display) display.textContent = v + 'm';
             rowDuration = v;
+            currentSegment = null;
         } else if (row.classList.contains('wrap-row')) {
             updateBreakRowMetadata(row, shotCount, scenesSet);
             rowDuration = 0;
             const display = row.querySelector('.time-display');
             if (display) display.textContent = '--';
+            currentSegment = null;
         } else {
             const setupCell = row.cells[11]?.querySelector('input');
             const shootCell = row.cells[12]?.querySelector('input');
@@ -3021,7 +3113,7 @@ function calculateTime() {
             const sum = setup + shoot;
             if (row.cells[13]) row.cells[13].textContent = sum + 'm';
             rowDuration = sum;
-            if (row.classList.contains('shot-row')) {
+            if (isShotRow) {
                 const key = sceneValueForRow || '__blank__';
                 let metric = sceneMetrics.get(key);
                 if (!metric) {
@@ -3037,6 +3129,23 @@ function calculateTime() {
                 metric.duration += sum;
                 metric.shots.push(shotLabelForRow || '—');
                 sceneMetrics.set(key, metric);
+
+                if (!currentSegment || currentSegment.sceneKey !== key) {
+                    const part = (segmentPartCounters.get(key) || 0) + 1;
+                    segmentPartCounters.set(key, part);
+                    currentSegment = {
+                        sceneKey: key,
+                        scene: sceneValueForRow,
+                        shots: [],
+                        duration: 0,
+                        count: 0,
+                        part
+                    };
+                    sceneSegments.push(currentSegment);
+                }
+                currentSegment.count += 1;
+                currentSegment.duration += sum;
+                currentSegment.shots.push(shotLabelForRow || '—');
             }
         }
 
@@ -3065,7 +3174,7 @@ function calculateTime() {
 
         total += rowDuration;
     });
-    updateSceneSummary(sceneMetrics);
+    updateSceneSummary({ aggregated: sceneMetrics, segments: sceneSegments });
     updateShotCount(shotCount);
     document.getElementById('totalTimeDisplay').textContent = formatTotalDuration(total);
     updateWrapStatus(total);
@@ -3363,6 +3472,11 @@ window.onload = function() {
     if (columnButton) {
         columnButton.addEventListener('click', toggleColumnOverlay);
     }
+    const sceneSummaryToggle = document.getElementById('sceneSummaryToggle');
+    if (sceneSummaryToggle) {
+        sceneSummaryToggle.addEventListener('click', toggleSceneSummaryMode);
+    }
+    updateSceneSummaryToggleLabel();
     // Inputs speichern
     [
         'clientName','productionTitle','location','director','date','cinematographer','agency','startTime','wrapTime'

@@ -1350,6 +1350,43 @@
                     <!-- Shots werden hier dynamisch hinzugefügt -->
                 </tbody>
             </table>
+            <template id="shotRowTemplate">
+                <tr class="shot-row">
+                    <td data-col-key="scene" class="scene-number col-scene"><input type="text" onchange="saveState()"></td>
+                    <td data-col-key="shot" class="shot-letter col-shot"><input type="text" onchange="saveState()"></td>
+                    <td data-col-key="type" class="col-type">
+                        <select class="shot-type-select" onchange="saveState()"></select>
+                    </td>
+                    <td data-col-key="movement" class="col-movement">
+                        <select class="movement-select" onchange="handleMovementChange(this)"></select>
+                    </td>
+                    <td data-col-key="gear" class="gear-cell col-gear"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)"></textarea></td>
+                    <td data-col-key="location" class="location-cell col-location"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)"></textarea></td>
+                    <td data-col-key="extint" class="col-extint">
+                        <select onchange="saveState()"></select>
+                    </td>
+                    <td data-col-key="sound" class="col-sound">
+                        <select onchange="saveState()"></select>
+                    </td>
+                    <td data-col-key="description" class="description-cell col-description"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)"></textarea></td>
+                    <td data-col-key="cast" class="cast-cell col-cast"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)"></textarea></td>
+                    <td data-col-key="reference" class="reference-cell col-reference">
+                        <div class="reference-upload">
+                            <input type="file" accept="image/*" style="display:none" onchange="handleImageUpload(this)">
+                            <button class="upload-btn" onclick="this.previousElementSibling.click()">Bild hochladen</button>
+                            <div class="image-preview"></div>
+                        </div>
+                    </td>
+                    <td data-col-key="setup" class="col-setup"><input type="number" min="0" onchange="calculateTime();saveState();" class="time-input"></td>
+                    <td data-col-key="shoot" class="col-shoot"><input type="number" min="0" onchange="calculateTime();saveState();" class="time-input"></td>
+                    <td data-col-key="total" class="time-display col-total">0m</td>
+                    <td data-col-key="time" class="start-time-cell col-start">--:--</td>
+                    <td data-col-key="action" class="action-cell col-action">
+                        <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
+                        <button class="action-btn duplicate-btn" onclick="duplicateRow(this)">⧉</button>
+                    </td>
+                </tr>
+            </template>
         </div>
 
         <div id="printReferencePage" class="print-only print-reference-page">
@@ -2353,62 +2390,78 @@ function undoClear() {
 
 function addShot(data = {}) {
     const tbody = document.getElementById('shotlistBody');
-    const row = document.createElement('tr');
-    row.className = 'shot-row';
-    const isDroneMovement = data.movement === 'Drone';
-    const shotTypeValue = isDroneMovement && !DRONE_SHOT_TYPE_OPTIONS.includes(data.type) ? '' : (data.type || '');
-    const shotTypeOptions = buildSelectOptions(
-        isDroneMovement ? DRONE_SHOT_TYPE_OPTIONS : SHOT_TYPE_OPTIONS,
-        shotTypeValue,
-        'Shot Type wählen...',
-        !isDroneMovement
-    );
-    const movementOptions = buildSelectOptions(MOVEMENT_OPTIONS, data.movement, 'Movement wählen...');
-    const extIntOptions = buildSelectOptions(EXT_INT_OPTIONS, data.extint, 'EXT/INT wählen...');
-    const soundOptions = buildSelectOptions(SOUND_OPTIONS, data.sound, 'Sound wählen...');
-    row.innerHTML = `
-        <td data-col-key="scene" class="scene-number col-scene"><input type="text" value="${data.scene || ''}" onchange="saveState()"></td>
-        <td data-col-key="shot" class="shot-letter col-shot"><input type="text" value="${data.shot || ''}" onchange="saveState()"></td>
-        <td data-col-key="type" class="col-type">
-            <select class="shot-type-select" onchange="saveState()">
-                ${shotTypeOptions}
-            </select>
-        </td>
-        <td data-col-key="movement" class="col-movement">
-            <select class="movement-select" onchange="handleMovementChange(this)">
-                ${movementOptions}
-            </select>
-        </td>
-        <td data-col-key="gear" class="gear-cell col-gear"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)">${data.gear || ''}</textarea></td>
-        <td data-col-key="location" class="location-cell col-location"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)">${data.location || ''}</textarea></td>
-        <td data-col-key="extint" class="col-extint">
-            <select onchange="saveState()">
-                ${extIntOptions}
-            </select>
-        </td>
-        <td data-col-key="sound" class="col-sound">
-            <select onchange="saveState()">
-                ${soundOptions}
-            </select>
-        </td>
-        <td data-col-key="description" class="description-cell col-description"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)">${data.description || ''}</textarea></td>
-        <td data-col-key="cast" class="cast-cell col-cast"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)">${data.cast || ''}</textarea></td>
-        <td data-col-key="reference" class="reference-cell col-reference">
-            <div class="reference-upload">
-                <input type="file" accept="image/*" style="display:none" onchange="handleImageUpload(this)">
-                <button class="upload-btn" onclick="this.previousElementSibling.click()">Bild hochladen</button>
-                <div class="image-preview"></div>
-            </div>
-        </td>
-        <td data-col-key="setup" class="col-setup"><input type="number" min="0" value="${data.setup || ''}" onchange="calculateTime();saveState();" class="time-input"></td>
-        <td data-col-key="shoot" class="col-shoot"><input type="number" min="0" value="${data.shoot || ''}" onchange="calculateTime();saveState();" class="time-input"></td>
-        <td data-col-key="total" class="time-display col-total">0m</td>
-        <td data-col-key="time" class="start-time-cell col-start">--:--</td>
-        <td data-col-key="action" class="action-cell col-action">
-            <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
-            <button class="action-btn duplicate-btn" onclick="duplicateRow(this)">⧉</button>
-        </td>
-    `;
+    const template = document.getElementById('shotRowTemplate');
+    if (!tbody || !template) return null;
+    const row = template.content.firstElementChild.cloneNode(true);
+
+    const sceneInput = row.querySelector('.scene-number input');
+    if (sceneInput) sceneInput.value = data.scene || '';
+
+    const shotInput = row.querySelector('.shot-letter input');
+    if (shotInput) shotInput.value = data.shot || '';
+
+    const movementValue = data.movement || '';
+    const movementSelect = row.querySelector('.movement-select');
+    if (movementSelect) {
+        movementSelect.innerHTML = buildSelectOptions(MOVEMENT_OPTIONS, movementValue, 'Movement wählen...');
+        movementSelect.value = movementValue;
+        if (movementValue && movementSelect.value !== movementValue) {
+            movementSelect.value = '';
+        }
+    }
+
+    const shotTypeSelect = row.querySelector('.shot-type-select');
+    if (shotTypeSelect) {
+        const isDroneMovement = movementValue === 'Drone';
+        const shotTypeValue = data.type || '';
+        shotTypeSelect.innerHTML = buildSelectOptions(
+            isDroneMovement ? DRONE_SHOT_TYPE_OPTIONS : SHOT_TYPE_OPTIONS,
+            shotTypeValue,
+            'Shot Type wählen...',
+            !isDroneMovement
+        );
+        shotTypeSelect.value = shotTypeValue;
+        if (shotTypeValue && shotTypeSelect.value !== shotTypeValue) {
+            shotTypeSelect.value = '';
+        }
+    }
+
+    const gearTextarea = row.querySelector('[data-col-key="gear"] textarea');
+    if (gearTextarea) gearTextarea.value = data.gear || '';
+
+    const locationTextarea = row.querySelector('[data-col-key="location"] textarea');
+    if (locationTextarea) locationTextarea.value = data.location || '';
+
+    const descriptionTextarea = row.querySelector('[data-col-key="description"] textarea');
+    if (descriptionTextarea) descriptionTextarea.value = data.description || '';
+
+    const castTextarea = row.querySelector('[data-col-key="cast"] textarea');
+    if (castTextarea) castTextarea.value = data.cast || '';
+
+    const extSelect = row.querySelector('[data-col-key="extint"] select');
+    if (extSelect) {
+        extSelect.innerHTML = buildSelectOptions(EXT_INT_OPTIONS, data.extint, 'EXT/INT wählen...');
+        extSelect.value = data.extint || '';
+    }
+
+    const soundSelect = row.querySelector('[data-col-key="sound"] select');
+    if (soundSelect) {
+        soundSelect.innerHTML = buildSelectOptions(SOUND_OPTIONS, data.sound, 'Sound wählen...');
+        soundSelect.value = data.sound || '';
+    }
+
+    const setupInput = row.querySelector('[data-col-key="setup"] input');
+    if (setupInput) setupInput.value = (data.setup !== undefined && data.setup !== null) ? data.setup : '';
+
+    const shootInput = row.querySelector('[data-col-key="shoot"] input');
+    if (shootInput) shootInput.value = (data.shoot !== undefined && data.shoot !== null) ? data.shoot : '';
+
+    const totalCell = row.querySelector('[data-col-key="total"]');
+    if (totalCell) totalCell.textContent = '0m';
+
+    const startCell = row.querySelector('.start-time-cell');
+    if (startCell) startCell.textContent = '--:--';
+
     enableRowDrag(row);
     insertRowBeforeWrap(row);
     row.querySelectorAll('textarea.auto-grow').forEach(autoGrow);
@@ -2416,6 +2469,7 @@ function addShot(data = {}) {
         calculateTime();
         saveState();
     }
+    return row;
 }
 
 function addPause() {
@@ -2713,38 +2767,26 @@ function printShotlist() {
 
 function duplicateRow(btn) {
     const row = btn.closest('tr');
-    const cells = row.querySelectorAll('input, select, textarea');
-    let data = {};
-    [
-        'scene','shot','type','movement','gear','location','extint','sound',
-        'description','cast','setup','shoot'
-    ].forEach((k,i) => {
-        if (!cells[i]) return;
-        if (cells[i].tagName === 'SELECT') {
-            data[k] = cells[i].value;
-        } else if (cells[i].tagName === 'TEXTAREA') {
-            data[k] = cells[i].value;
-        } else {
-            data[k] = cells[i].value;
-        }
-    });
-    const previousRestoringState = isRestoringState;
-    isRestoringState = true;
-    addShot(data);
-    isRestoringState = previousRestoringState;
+    const data = {
+        scene: row.querySelector('.scene-number input')?.value || '',
+        shot: row.querySelector('.shot-letter input')?.value || '',
+        type: row.querySelector('.shot-type-select')?.value || '',
+        movement: row.querySelector('.movement-select')?.value || '',
+        gear: row.querySelector('[data-col-key="gear"] textarea')?.value || '',
+        location: row.querySelector('[data-col-key="location"] textarea')?.value || '',
+        extint: row.querySelector('[data-col-key="extint"] select')?.value || '',
+        sound: row.querySelector('[data-col-key="sound"] select')?.value || '',
+        description: row.querySelector('[data-col-key="description"] textarea')?.value || '',
+        cast: row.querySelector('[data-col-key="cast"] textarea')?.value || '',
+        setup: row.querySelector('[data-col-key="setup"] input')?.value || '',
+        shoot: row.querySelector('[data-col-key="shoot"] input')?.value || ''
+    };
     const tbody = row.parentNode;
-    let newRow = null;
-    if (tbody) {
-        const wrapRow = getWrapRow();
-        if (wrapRow && wrapRow.parentNode === tbody) {
-            newRow = wrapRow.previousElementSibling;
-        }
-        if (!newRow) {
-            newRow = tbody.lastElementChild;
-        }
-    }
+    const newRow = addShot(data);
     if (tbody && newRow && newRow !== row && newRow.parentNode === tbody) {
-        tbody.insertBefore(newRow, row.nextSibling);
+        const wrapRow = getWrapRow();
+        const next = row.nextSibling && row.nextSibling !== wrapRow ? row.nextSibling : wrapRow;
+        tbody.insertBefore(newRow, next);
         if (columnSettings) applyColumnSettings(columnSettings);
         calculateTime();
         saveState();

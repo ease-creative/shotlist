@@ -4166,7 +4166,8 @@ function updateWrapStatus(totalMinutes) {
 function updateWrapNetto(totalMinutes, pauseMinutes) {
     const wrapRow = getWrapRow();
     if (!wrapRow) return;
-    const displayTarget = wrapRow.querySelector('.wrap-row-content .time-display');
+    const totalCell = wrapRow.querySelector('[data-col-key="total"] .time-display');
+    const displayTarget = wrapRow.querySelector('[data-col-key="total"]');
     if (!displayTarget) return;
 
     const netMinutes = Math.max(0, (parseInt(totalMinutes, 10) || 0) - (parseInt(pauseMinutes, 10) || 0));

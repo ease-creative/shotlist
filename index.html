@@ -590,6 +590,63 @@
             margin-bottom: 30px;
         }
         
+        .scene-summary {
+            margin: 0 30px 30px;
+            background: #f1f3f5;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 16px 20px;
+        }
+
+        .scene-summary h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #343a40;
+            margin-bottom: 12px;
+        }
+
+        .scene-summary-body.empty {
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .scene-summary-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .scene-summary-table th,
+        .scene-summary-table td {
+            text-align: left;
+            padding: 6px 8px;
+            border-bottom: 1px solid #dee2e6;
+            font-size: 13px;
+        }
+
+        .scene-summary-table th {
+            color: #495057;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .scene-summary-table td {
+            color: #343a40;
+        }
+
+        .scene-summary-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .scene-summary-shots {
+            color: #495057;
+            white-space: nowrap;
+        }
+
+        .scene-summary-duration {
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
         .shotlist-table {
             width: 100%;
             border-collapse: collapse;
@@ -1395,6 +1452,11 @@
                 </tr>
             </template>
         </div>
+
+        <section id="sceneSummary" class="scene-summary" aria-live="polite">
+            <h3>Szenen-Übersicht</h3>
+            <div class="scene-summary-body empty">Keine Szenen erfasst.</div>
+        </section>
 
         <div id="printReferencePage" class="print-only print-reference-page">
             <h2 class="print-heading">Referenzbilder</h2>
@@ -2591,6 +2653,61 @@ function triggerPrint() {
     }, 50);
 }
 
+function updateSceneSummary(sceneMetrics) {
+    const container = document.getElementById('sceneSummary');
+    if (!container) return;
+    const body = container.querySelector('.scene-summary-body');
+    if (!body) return;
+
+    const entries = Array.from((sceneMetrics instanceof Map ? sceneMetrics.values() : [])).filter(metric => metric && metric.count);
+    if (!entries.length) {
+        body.classList.add('empty');
+        body.textContent = 'Keine Szenen erfasst.';
+        return;
+    }
+
+    const collator = new Intl.Collator('de', {numeric: true, sensitivity: 'base'});
+    entries.sort((a, b) => {
+        if (a.key === '__blank__' && b.key === '__blank__') return 0;
+        if (a.key === '__blank__') return 1;
+        if (b.key === '__blank__') return -1;
+        return collator.compare(a.scene, b.scene);
+    });
+
+    const table = document.createElement('table');
+    table.className = 'scene-summary-table';
+    table.innerHTML = `
+        <thead>
+            <tr>
+                <th>Szene</th>
+                <th>Shots</th>
+                <th>Shot-Liste</th>
+                <th>Gesamtdauer</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    `;
+    const tbody = table.querySelector('tbody');
+
+    entries.forEach(metric => {
+        const sceneLabel = metric.scene ? `Scene ${metric.scene}` : 'Scene —';
+        const shotList = metric.shots.filter(Boolean).join(', ');
+        const durationLabel = formatDurationLabel(metric.duration);
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${sceneLabel}</td>
+            <td class="scene-summary-shots">${metric.count}</td>
+            <td>${shotList || '—'}</td>
+            <td class="scene-summary-duration">${durationLabel}</td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    body.classList.remove('empty');
+    body.innerHTML = '';
+    body.appendChild(table);
+}
+
 function updateShotCount(count) {
     const el = document.getElementById('shotCountDisplay');
     if (el) el.textContent = count;
@@ -2857,15 +2974,20 @@ function calculateTime() {
     let total = 0;
     let shotCount = 0;
     const scenesSet = new Set();
+    const sceneMetrics = new Map();
     const startMinutes = parseStartMinutes();
     let currentStart = startMinutes;
     Array.from(tbody.rows).forEach(row => {
         let rowDuration = 0;
+        let sceneValueForRow = '';
+        let shotLabelForRow = '';
         if (row.classList.contains('shot-row')) {
             shotCount += 1;
             const sceneInput = row.querySelector('.scene-number input');
-            const sceneValue = sceneInput ? sceneInput.value.trim() : '';
-            if (sceneValue) scenesSet.add(sceneValue);
+            sceneValueForRow = sceneInput ? sceneInput.value.trim() : '';
+            if (sceneValueForRow) scenesSet.add(sceneValueForRow);
+            const shotInput = row.querySelector('.shot-letter input');
+            shotLabelForRow = shotInput ? shotInput.value.trim() : '';
         }
         if (row.classList.contains('pause-row')) {
             updateBreakRowMetadata(row, shotCount, scenesSet);
@@ -2899,6 +3021,23 @@ function calculateTime() {
             const sum = setup + shoot;
             if (row.cells[13]) row.cells[13].textContent = sum + 'm';
             rowDuration = sum;
+            if (row.classList.contains('shot-row')) {
+                const key = sceneValueForRow || '__blank__';
+                let metric = sceneMetrics.get(key);
+                if (!metric) {
+                    metric = {
+                        key,
+                        scene: sceneValueForRow,
+                        shots: [],
+                        duration: 0,
+                        count: 0
+                    };
+                }
+                metric.count += 1;
+                metric.duration += sum;
+                metric.shots.push(shotLabelForRow || '—');
+                sceneMetrics.set(key, metric);
+            }
         }
 
         const startCell = row.querySelector('.start-time-cell');
@@ -2926,6 +3065,7 @@ function calculateTime() {
 
         total += rowDuration;
     });
+    updateSceneSummary(sceneMetrics);
     updateShotCount(shotCount);
     document.getElementById('totalTimeDisplay').textContent = formatTotalDuration(total);
     updateWrapStatus(total);

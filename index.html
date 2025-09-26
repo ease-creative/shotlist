@@ -716,6 +716,33 @@
             word-break: break-word;
         }
 
+        .scene-summary-row-start td {
+            background: linear-gradient(135deg, rgba(14,108,140,0.38) 0%, rgba(14,108,140,0.18) 100%) !important;
+            border-left: 3px solid var(--color-accent-start);
+        }
+
+        .scene-summary-row-start:hover td {
+            background: linear-gradient(135deg, rgba(14,108,140,0.48) 0%, rgba(14,108,140,0.26) 100%) !important;
+        }
+
+        .scene-summary-row-pause td {
+            background: linear-gradient(135deg, rgba(156,133,0,0.32) 0%, rgba(156,133,0,0.18) 100%) !important;
+            border-left: 3px solid var(--color-accent-pause);
+        }
+
+        .scene-summary-row-pause:hover td {
+            background: linear-gradient(135deg, rgba(156,133,0,0.45) 0%, rgba(156,133,0,0.26) 100%) !important;
+        }
+
+        .scene-summary-row-wrap td {
+            background: linear-gradient(135deg, rgba(90,59,160,0.35) 0%, rgba(90,59,160,0.18) 100%) !important;
+            border-left: 3px solid var(--color-accent-wrap);
+        }
+
+        .scene-summary-row-wrap:hover td {
+            background: linear-gradient(135deg, rgba(90,59,160,0.45) 0%, rgba(90,59,160,0.26) 100%) !important;
+        }
+
         .scene-summary-header {
             display: flex;
             align-items: center;
@@ -2339,7 +2366,7 @@ let selectedRows = new Set();
 let lastSelectedAnchor = null;
 let draggingRows = [];
 let sceneSummaryMode = 'scene';
-let lastSceneSummaryData = { aggregated: new Map(), segments: [] };
+let lastSceneSummaryData = { aggregated: new Map(), segments: [], specials: [] };
 let activeImagePreview = null;
 
 const COLUMN_SETTINGS_KEY = 'shotlist-column-settings';
@@ -2927,11 +2954,12 @@ function toggleSceneSummaryMode() {
 
 function updateSceneSummary(summaryData) {
     if (!summaryData || typeof summaryData !== 'object') {
-        lastSceneSummaryData = { aggregated: new Map(), segments: [] };
+        lastSceneSummaryData = { aggregated: new Map(), segments: [], specials: [] };
     } else {
         const aggregated = summaryData.aggregated instanceof Map ? summaryData.aggregated : new Map();
         const segments = Array.isArray(summaryData.segments) ? summaryData.segments : [];
-        lastSceneSummaryData = { aggregated, segments };
+        const specials = Array.isArray(summaryData.specials) ? summaryData.specials : [];
+        lastSceneSummaryData = { aggregated, segments, specials };
     }
     const container = document.getElementById('sceneSummary');
     if (!container) return;
@@ -2942,9 +2970,36 @@ function updateSceneSummary(summaryData) {
 
     const aggregatedEntries = Array.from(lastSceneSummaryData.aggregated.values());
     const segmentEntries = lastSceneSummaryData.segments.slice ? lastSceneSummaryData.segments.slice() : [];
+    const specials = Array.isArray(lastSceneSummaryData.specials) ? lastSceneSummaryData.specials.slice() : [];
+
+    const compareEntries = (a, b) => {
+        const priorityFor = (entry) => {
+            if (entry && entry.specialType === 'start') return -2;
+            if (entry && entry.specialType === 'pause') return 0;
+            if (entry && entry.specialType === 'wrap') return 2;
+            return -1;
+        };
+        const startValue = (entry) => {
+            if (entry && entry.specialType === 'start') return Number.NEGATIVE_INFINITY;
+            if (entry && entry.specialType === 'wrap') return Number.POSITIVE_INFINITY;
+            if (entry && typeof entry.start === 'number') return entry.start;
+            return Number.POSITIVE_INFINITY;
+        };
+        const startDiff = startValue(a) - startValue(b);
+        if (startDiff !== 0) return startDiff;
+        return priorityFor(a) - priorityFor(b);
+    };
+
+    const sortedSpecials = specials.slice().sort(compareEntries);
+    const startSpecials = sortedSpecials.filter(item => item.specialType === 'start');
+    const pauseSpecials = sortedSpecials.filter(item => item.specialType === 'pause');
+    const wrapSpecials = sortedSpecials.filter(item => item.specialType === 'wrap');
+
     let entries;
     if (sceneSummaryMode === 'plan') {
-        entries = segmentEntries;
+        const timelineEntries = [...segmentEntries, ...sortedSpecials];
+        timelineEntries.sort(compareEntries);
+        entries = timelineEntries;
     } else {
         const collator = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
         aggregatedEntries.sort((a, b) => {
@@ -2957,10 +3012,10 @@ function updateSceneSummary(summaryData) {
             if (blankB) return -1;
             return collator.compare(a.scene || '', b.scene || '');
         });
-        entries = aggregatedEntries;
+        entries = [...startSpecials, ...aggregatedEntries, ...pauseSpecials, ...wrapSpecials];
     }
 
-    entries = (entries || []).filter(metric => metric && metric.count);
+    entries = (entries || []).filter(metric => metric && (metric.specialType || metric.count !== undefined));
 
     if (!entries.length) {
         body.classList.add('empty');
@@ -2987,30 +3042,57 @@ function updateSceneSummary(summaryData) {
 
     entries.forEach(metric => {
         if (!metric) return;
+        const isSpecial = Boolean(metric.specialType);
         const sceneLabelBase = metric.scene ? `Scene ${metric.scene}` : 'Scene —';
-        const sceneLabel = sceneSummaryMode === 'plan' && metric.part
-            ? `${sceneLabelBase} – Teil ${metric.part}`
-            : sceneLabelBase;
-        const shotsList = Array.isArray(metric.shots) && metric.shots.length
+        let sceneLabel = sceneLabelBase;
+        if (isSpecial) {
+            sceneLabel = metric.label || (metric.specialType === 'start' ? 'Start – Briefing/Aufbau' : metric.specialType === 'pause' ? 'Pause' : 'Wrap');
+        } else if (sceneSummaryMode === 'plan' && metric.part) {
+            sceneLabel = `${sceneLabelBase} – Teil ${metric.part}`;
+        }
+
+        const shotsList = !isSpecial && Array.isArray(metric.shots) && metric.shots.length
             ? metric.shots.join(', ')
             : '—';
-        const durationLabel = formatDurationLabel(metric.duration);
-        const timeLabel = (typeof metric.start === 'number' && typeof metric.end === 'number')
-            ? `${formatMinutesToHHMM(metric.start)} – ${formatMinutesToHHMM(metric.end)}`
-            : '—';
-        const locationSet = metric.locations instanceof Set
+        const shotsCountDisplay = isSpecial ? '—' : (metric.count !== undefined ? metric.count : '—');
+
+        let durationLabel = formatDurationLabel(metric.duration);
+        if (isSpecial && metric.specialType === 'wrap') {
+            durationLabel = '—';
+        }
+
+        let timeLabel = '—';
+        if (typeof metric.start === 'number') {
+            if (metric.specialType === 'wrap') {
+                timeLabel = formatMinutesToHHMM(metric.start);
+            } else if (typeof metric.end === 'number' && metric.end !== metric.start) {
+                timeLabel = `${formatMinutesToHHMM(metric.start)} – ${formatMinutesToHHMM(metric.end)}`;
+            } else if (typeof metric.end === 'number') {
+                timeLabel = `${formatMinutesToHHMM(metric.start)} – ${formatMinutesToHHMM(metric.end)}`;
+            } else {
+                timeLabel = formatMinutesToHHMM(metric.start);
+            }
+        }
+
+        const locationSet = !isSpecial && metric.locations instanceof Set
             ? Array.from(metric.locations)
             : Array.isArray(metric.locations)
                 ? metric.locations
                 : [];
-        const locationLabel = locationSet
-            .map(loc => typeof loc === 'string' ? loc.trim() : '')
-            .filter(loc => loc.length)
-            .join(', ') || '—';
+        const locationLabel = isSpecial
+            ? '—'
+            : (locationSet
+                .map(loc => typeof loc === 'string' ? loc.trim() : '')
+                .filter(loc => loc.length)
+                .join(', ') || '—');
         const row = document.createElement('tr');
+        row.classList.add('scene-summary-row');
+        if (isSpecial && metric.specialType) {
+            row.classList.add(`scene-summary-row-${metric.specialType}`);
+        }
         row.innerHTML = `
             <td>${sceneLabel}</td>
-            <td class="scene-summary-shots">${metric.count || 0}</td>
+            <td class="scene-summary-shots">${shotsCountDisplay}</td>
             <td>${shotsList}</td>
             <td class="scene-summary-time">${timeLabel}</td>
             <td class="scene-summary-duration">${durationLabel}</td>
@@ -3293,6 +3375,7 @@ function calculateTime() {
     const sceneMetrics = new Map();
     const sceneSegments = [];
     const segmentPartCounters = new Map();
+    const specialEntries = [];
     let currentSegment = null;
     const startMinutes = parseStartMinutes();
     let currentStart = startMinutes;
@@ -3315,6 +3398,8 @@ function calculateTime() {
             const rawLocation = locationField ? locationField.value : '';
             locationLabel = getLocationShort(rawLocation);
         }
+        let specialType = null;
+        let specialLabel = '';
         if (row.classList.contains('pause-row')) {
             updateBreakRowMetadata(row, shotCount, scenesSet);
             const pause = row.querySelector('input[type="number"]');
@@ -3323,6 +3408,8 @@ function calculateTime() {
             if (display) display.textContent = v + 'm';
             rowDuration = v;
             currentSegment = null;
+            specialType = 'pause';
+            specialLabel = 'Pause';
         } else if (row.classList.contains('umbau-row')) {
             const input = row.querySelector('.umbau-duration-input');
             const v = parseInt(input ? input.value : 0, 10) || 0;
@@ -3337,12 +3424,16 @@ function calculateTime() {
             if (display) display.textContent = v + 'm';
             rowDuration = v;
             currentSegment = null;
+            specialType = 'start';
+            specialLabel = 'Start – Briefing/Aufbau';
         } else if (row.classList.contains('wrap-row')) {
             updateBreakRowMetadata(row, shotCount, scenesSet);
             rowDuration = 0;
             const display = row.querySelector('.time-display');
             if (display) display.textContent = '--';
             currentSegment = null;
+            specialType = 'wrap';
+            specialLabel = 'Wrap';
         } else {
             const setupCell = row.cells[11]?.querySelector('input');
             const shootCell = row.cells[12]?.querySelector('input');
@@ -3419,6 +3510,20 @@ function calculateTime() {
             }
         }
 
+        if (specialType) {
+            const entry = {
+                specialType,
+                label: specialLabel,
+                duration: rowDuration,
+                start: rowStartMinutes,
+                end: rowEndMinutes,
+                locations: [],
+                count: null,
+                shots: []
+            };
+            specialEntries.push(entry);
+        }
+
         const startCell = row.querySelector('.start-time-cell');
         if (startCell) {
             if (!startValid) {
@@ -3440,7 +3545,7 @@ function calculateTime() {
 
         total += rowDuration;
     });
-    updateSceneSummary({ aggregated: sceneMetrics, segments: sceneSegments });
+    updateSceneSummary({ aggregated: sceneMetrics, segments: sceneSegments, specials: specialEntries });
     updateShotCount(shotCount);
     document.getElementById('totalTimeDisplay').textContent = formatTotalDuration(total);
     updateWrapStatus(total);

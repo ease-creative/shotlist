@@ -73,39 +73,81 @@
         
         .time-tracking {
             text-align: right;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 16px;
         }
         
         .time-info {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 14px;
             align-items: flex-end;
         }
-        
-        .time-row {
+
+        .stat-cards {
             display: flex;
-            align-items: center;
-            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 12px;
         }
-        
-        .total-time {
-            font-size: 1.3rem;
+
+        .stat-card {
+            min-width: 120px;
+            background: rgba(255,255,255,0.18);
+            border: 1px solid rgba(255,255,255,0.28);
+            border-radius: 12px;
+            padding: 10px 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+            color: #fff;
+            text-align: right;
+        }
+
+        .stat-card .stat-label {
+            font-size: 0.75rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .stat-card .stat-value {
+            font-size: 1.2rem;
             font-weight: 700;
-            background: rgba(255,255,255,0.2);
-            padding: 10px 18px;
-            border-radius: 25px;
         }
-        
+
+        .stat-card.stat-diff {
+            transition: background 0.3s ease, border 0.3s ease;
+        }
+
+        .stat-card.stat-diff.neutral {
+            background: rgba(255,255,255,0.18);
+            border-color: rgba(255,255,255,0.28);
+        }
+
+        .stat-card.stat-diff.over {
+            background: rgba(220,53,69,0.25);
+            border-color: rgba(220,53,69,0.45);
+        }
+
+        .stat-card.stat-diff.under {
+            background: rgba(40,167,69,0.22);
+            border-color: rgba(40,167,69,0.45);
+        }
+
         .schedule-info {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             font-size: 0.95rem;
             font-weight: 600;
         }
         
         .schedule-info label {
-            color: rgba(255,255,255,0.9);
+            color: rgba(255,255,255,0.8);
         }
         
         .schedule-info input[type="time"] {
@@ -120,25 +162,6 @@
         .schedule-info input[type="time"]:focus {
             outline: none;
             border-color: rgba(255,255,255,0.6);
-        }
-        
-        .wrap-status {
-            font-size: 1rem;
-            font-weight: 600;
-            background: rgba(255,255,255,0.2);
-            padding: 6px 14px;
-            border-radius: 15px;
-            min-width: 120px;
-            text-align: center;
-        }
-        
-        .wrap-status.over-time {
-            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-            animation: pulse 2s infinite;
-        }
-        
-        .wrap-status.under-time {
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
         }
         
         @keyframes pulse {
@@ -973,19 +996,29 @@
             </div>
             <div class="time-tracking">
                 <div class="time-info">
-                    <div class="time-row">
-                        <div class="total-time">
-                            Total Time: <span id="totalTimeDisplay">0h 0m</span>
+                    <div class="stat-cards">
+                        <div class="stat-card">
+                            <span class="stat-label">Shots</span>
+                            <span class="stat-value" id="shotCountDisplay">0</span>
                         </div>
-                        <div class="schedule-info">
-                            <label>Start:</label>
-                            <input type="time" id="startTime" value="08:00" onchange="calculateTime()" oninput="calculateTime()">
-                            <label>WRAP:</label>
-                            <input type="time" id="wrapTime" value="18:00" onchange="calculateTime()">
+                        <div class="stat-card">
+                            <span class="stat-label">Total Time</span>
+                            <span class="stat-value" id="totalTimeDisplay">0h 0m</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Available Time</span>
+                            <span class="stat-value" id="availableTimeDisplay">--</span>
+                        </div>
+                        <div class="stat-card stat-diff neutral" id="timeDifferenceCard">
+                            <span class="stat-label">Difference</span>
+                            <span class="stat-value" id="timeDifferenceDisplay">--</span>
                         </div>
                     </div>
-                    <div class="wrap-status" id="wrapStatus">
-                        Set Times
+                    <div class="schedule-info">
+                        <label>Start:</label>
+                        <input type="time" id="startTime" value="08:00" onchange="calculateTime()" oninput="calculateTime()">
+                        <label>Wrap:</label>
+                        <input type="time" id="wrapTime" value="18:00" onchange="calculateTime()" oninput="calculateTime()">
                     </div>
                 </div>
             </div>
@@ -1789,6 +1822,32 @@ function formatMinutesToHHMM(totalMinutes) {
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
+function formatTotalDuration(totalMinutes) {
+    const safeMinutes = Math.max(0, parseInt(totalMinutes, 10) || 0);
+    const hours = Math.floor(safeMinutes / 60);
+    const minutes = safeMinutes % 60;
+    return `${hours}h ${minutes}m`;
+}
+
+function formatDurationLabel(totalMinutes) {
+    const safeMinutes = Math.max(0, parseInt(totalMinutes, 10) || 0);
+    const hours = Math.floor(safeMinutes / 60);
+    const minutes = safeMinutes % 60;
+    const parts = [];
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0 || hours === 0) {
+        parts.push(`${minutes}m`);
+    } else if (minutes === 0) {
+        parts.push('0m');
+    }
+    return parts.join(' ');
+}
+
+function updateShotCount(count) {
+    const el = document.getElementById('shotCountDisplay');
+    if (el) el.textContent = count;
+}
+
 function updateUndoButtonVisibility(show) {
     const undoBtn = document.getElementById('undoResetButton');
     if (!undoBtn) return;
@@ -2020,10 +2079,14 @@ function calculateTime() {
     const tbody = document.getElementById('shotlistBody');
     if (!tbody) return;
     let total = 0;
+    let shotCount = 0;
     const startMinutes = parseStartMinutes();
     let currentStart = startMinutes;
     Array.from(tbody.rows).forEach(row => {
         let rowDuration = 0;
+        if (row.classList.contains('shot-row')) {
+            shotCount += 1;
+        }
         if (row.classList.contains('pause-row')) {
             const pause = row.querySelector('input[type="number"]');
             const v = parseInt(pause ? pause.value : 0, 10) || 0;
@@ -2081,33 +2144,58 @@ function calculateTime() {
 
         total += rowDuration;
     });
-    document.getElementById('totalTimeDisplay').textContent = Math.floor(total/60) + 'h ' + (total%60) + 'm';
+    updateShotCount(shotCount);
+    document.getElementById('totalTimeDisplay').textContent = formatTotalDuration(total);
     updateWrapStatus(total);
 }
 
 function updateWrapStatus(totalMinutes) {
-    const start = document.getElementById('startTime').value;
-    const wrap = document.getElementById('wrapTime').value;
-    const status = document.getElementById('wrapStatus');
+    const availableEl = document.getElementById('availableTimeDisplay');
+    const diffEl = document.getElementById('timeDifferenceDisplay');
+    const diffCard = document.getElementById('timeDifferenceCard');
+    if (!availableEl || !diffEl || !diffCard) return;
+
+    const startInput = document.getElementById('startTime');
+    const wrapInput = document.getElementById('wrapTime');
+    const start = startInput ? startInput.value : '';
+    const wrap = wrapInput ? wrapInput.value : '';
+
+    const resetCard = (text, state = 'neutral', availableText = '--') => {
+        availableEl.textContent = availableText;
+        diffEl.textContent = text;
+        diffCard.className = `stat-card stat-diff ${state}`;
+    };
+
     if (!start || !wrap) {
-        status.textContent = 'Set Times';
-        status.className = 'wrap-status';
+        resetCard('Start/Wrap setzen');
         return;
     }
+
     const [sh, sm] = start.split(':').map(Number);
     const [wh, wm] = wrap.split(':').map(Number);
-    let available = (wh*60+wm) - (sh*60+sm);
-    if (isNaN(available) || available < 0) {
-        status.textContent = 'Ungültige Zeiten';
-        status.className = 'wrap-status';
+    if ([sh, sm, wh, wm].some(v => Number.isNaN(v))) {
+        resetCard('Ungültige Zeiten');
         return;
     }
-    if (totalMinutes > available) {
-        status.textContent = 'Über Zeit!';
-        status.className = 'wrap-status over-time';
+
+    let available = (wh * 60 + wm) - (sh * 60 + sm);
+    if (available < 0) {
+        resetCard('Ungültige Zeiten');
+        return;
+    }
+
+    availableEl.textContent = formatDurationLabel(available);
+    const diff = available - (parseInt(totalMinutes, 10) || 0);
+
+    if (diff > 0) {
+        diffEl.textContent = `${formatDurationLabel(diff)} übrig`;
+        diffCard.className = 'stat-card stat-diff under';
+    } else if (diff < 0) {
+        diffEl.textContent = `${formatDurationLabel(Math.abs(diff))} über`;
+        diffCard.className = 'stat-card stat-diff over';
     } else {
-        status.textContent = 'OK (' + (available-totalMinutes) + 'm übrig)';
-        status.className = 'wrap-status under-time';
+        diffEl.textContent = 'Plan erfüllt';
+        diffCard.className = 'stat-card stat-diff neutral';
     }
 }
 

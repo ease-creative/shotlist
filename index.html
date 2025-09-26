@@ -781,15 +781,24 @@
         }
 
         .break-meta {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            align-items: flex-start;
+            display: inline-flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: nowrap;
+            white-space: nowrap;
+        }
+
+        .break-meta .break-shots::after {
+            content: ' | ';
+            font-weight: 400;
+            color: #adb5bd;
         }
 
         .break-meta .break-scenes {
             font-style: italic;
             font-weight: 400;
+            white-space: nowrap;
         }
 
         .wrap-row {
@@ -1867,7 +1876,8 @@ function updateBreakRowMetadata(row, shotCount, scenesSet) {
     const shotsEl = container.querySelector('.break-shots');
     const scenesEl = container.querySelector('.break-scenes');
     if (shotsEl) {
-        shotsEl.textContent = `Shots: ${shotCount}`;
+        const label = row.classList.contains('wrap-row') ? 'Total Shots' : 'Shots';
+        shotsEl.textContent = `${label}: ${shotCount}`;
     }
     if (scenesEl) {
         const scenes = Array.from(scenesSet).map(scene => String(scene || '').trim()).filter(scene => scene.length > 0);
@@ -1999,7 +2009,7 @@ function addWrap() {
     const row = document.createElement('tr');
     row.className = 'wrap-row';
     row.innerHTML = `
-        <td data-col-key="scene" class="break-meta-cell"><div class="break-meta"><span class="break-shots">Shots: 0</span><span class="break-scenes">Szenen: –</span></div></td>
+        <td data-col-key="scene" class="break-meta-cell"><div class="break-meta"><span class="break-shots">Total Shots: 0</span><span class="break-scenes">Szenen: –</span></div></td>
         <td data-col-key="shot"></td>
         <td data-col-key="type"></td>
         <td data-col-key="movement"></td>

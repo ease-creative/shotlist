@@ -4012,11 +4012,7 @@ function calculateTime() {
                 if (row.classList.contains('wrap-row')) {
                     startCell.textContent = startStr;
                 } else {
-                    let label = `${startStr} – ${endStr}`;
-                    if (appliedParallel) {
-                        label += ' // parallel';
-                    }
-                    startCell.textContent = label;
+                    startCell.textContent = `${startStr} – ${endStr}`;
                 }
             }
         }

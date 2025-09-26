@@ -1544,6 +1544,41 @@ function updateColumnOverlayList() {
     });
 }
 
+function getWrapRow() {
+    const tbody = document.getElementById('shotlistBody');
+    if (!tbody) return null;
+    return tbody.querySelector('tr.wrap-row');
+}
+
+function insertRowBeforeWrap(row) {
+    const tbody = document.getElementById('shotlistBody');
+    if (!tbody) return;
+    const wrapRow = getWrapRow();
+    if (wrapRow && wrapRow.parentNode === tbody && wrapRow !== row) {
+        tbody.insertBefore(row, wrapRow);
+    } else {
+        tbody.appendChild(row);
+    }
+}
+
+function insertUmbauRowAtPosition(row) {
+    const tbody = document.getElementById('shotlistBody');
+    if (!tbody) return;
+    const wrapRow = getWrapRow();
+    if (lastEditedRow && lastEditedRow.parentNode === tbody && lastEditedRow !== wrapRow) {
+        const next = lastEditedRow.nextSibling;
+        if (next && next !== row && next !== wrapRow) {
+            tbody.insertBefore(row, next);
+            return;
+        }
+        if (wrapRow && wrapRow.parentNode === tbody) {
+            tbody.insertBefore(row, wrapRow);
+            return;
+        }
+    }
+    insertRowBeforeWrap(row);
+}
+
 function captureSnapshot() {
     const tbody = document.getElementById('shotlistBody');
     const rows = Array.from(tbody ? tbody.rows : []);
@@ -1858,6 +1893,7 @@ let draggedColumnKey = null;
 let columnOverlayVisible = false;
 let columnSettings = null;
 let printCleanupTasks = [];
+let lastEditedRow = null;
 
 const COLUMN_SETTINGS_KEY = 'shotlist-column-settings';
 
@@ -1963,9 +1999,14 @@ function handleTableDragOver(event) {
     event.preventDefault();
     const tbody = event.currentTarget;
     const afterElement = getDragAfterElement(tbody, event.clientY);
+    const wrapRow = getWrapRow();
     if (afterElement == null) {
-        tbody.appendChild(draggedRow);
-    } else if (afterElement !== draggedRow) {
+        if (wrapRow && wrapRow.parentNode === tbody) {
+            tbody.insertBefore(draggedRow, wrapRow);
+        } else {
+            tbody.appendChild(draggedRow);
+        }
+    } else if (afterElement !== draggedRow && afterElement !== wrapRow) {
         tbody.insertBefore(draggedRow, afterElement);
     }
 }
@@ -1980,6 +2021,15 @@ function getDragAfterElement(container, y) {
         }
         return closest;
     }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+}
+
+function handleFieldEdited(event) {
+    if (isRestoringState) return;
+    const target = event.target;
+    if (!target || typeof target.closest !== 'function') return;
+    const row = target.closest('tr');
+    if (!row || row.classList.contains('wrap-row')) return;
+    lastEditedRow = row;
 }
 
 function parseStartMinutes() {
@@ -2290,7 +2340,7 @@ function addShot(data = {}) {
         </td>
     `;
     enableRowDrag(row);
-    tbody.appendChild(row);
+    insertRowBeforeWrap(row);
     row.querySelectorAll('textarea.auto-grow').forEach(autoGrow);
     if (!isRestoringState) {
         calculateTime();
@@ -2323,7 +2373,7 @@ function addPause() {
         </td>
     `;
     enableRowDrag(row);
-    tbody.appendChild(row);
+    insertRowBeforeWrap(row);
     if (columnSettings) applyColumnSettings(columnSettings);
     if (!isRestoringState) {
         calculateTime();
@@ -2333,29 +2383,34 @@ function addPause() {
 
 function addWrap() {
     const tbody = document.getElementById('shotlistBody');
-    const row = document.createElement('tr');
-    row.className = 'wrap-row';
-    row.innerHTML = `
-        <td data-col-key="scene" class="break-meta-cell"><div class="break-meta"><span class="break-shots">Total Shots: 0</span><span class="break-scenes">Szenen: –</span></div></td>
-        <td data-col-key="shot"></td>
-        <td data-col-key="type"></td>
-        <td data-col-key="movement"></td>
-        <td data-col-key="gear" class="gear-cell"></td>
-        <td data-col-key="location" class="location-cell"></td>
-        <td data-col-key="extint"></td>
-        <td data-col-key="sound"></td>
-        <td data-col-key="description" class="description-cell"><span class="wrap-label">WRAP</span></td>
-        <td data-col-key="cast" class="cast-cell"></td>
-        <td data-col-key="reference" class="reference-cell"></td>
-        <td data-col-key="setup"></td>
-        <td data-col-key="shoot"></td>
-        <td data-col-key="total" class="time-display">--</td>
-        <td data-col-key="time" class="start-time-cell">--:--</td>
-        <td data-col-key="action" class="action-cell">
-            <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
-        </td>
-    `;
-    enableRowDrag(row);
+    if (!tbody) return;
+    let row = getWrapRow();
+    if (!row) {
+        row = document.createElement('tr');
+        row.className = 'wrap-row';
+        row.innerHTML = `
+            <td data-col-key="scene" class="break-meta-cell"><div class="break-meta"><span class="break-shots">Total Shots: 0</span><span class="break-scenes">Szenen: –</span></div></td>
+            <td data-col-key="shot"></td>
+            <td data-col-key="type"></td>
+            <td data-col-key="movement"></td>
+            <td data-col-key="gear" class="gear-cell"></td>
+            <td data-col-key="location" class="location-cell"></td>
+            <td data-col-key="extint"></td>
+            <td data-col-key="sound"></td>
+            <td data-col-key="description" class="description-cell"><span class="wrap-label">WRAP</span></td>
+            <td data-col-key="cast" class="cast-cell"></td>
+            <td data-col-key="reference" class="reference-cell"></td>
+            <td data-col-key="setup"></td>
+            <td data-col-key="shoot"></td>
+            <td data-col-key="total" class="time-display">--</td>
+            <td data-col-key="time" class="start-time-cell">--:--</td>
+            <td data-col-key="action" class="action-cell">
+                <button class="action-btn delete-btn" onclick="this.closest('tr').remove();calculateTime();saveState();">🗑️</button>
+            </td>
+        `;
+    }
+    row.classList.remove('draggable-row');
+    row.removeAttribute('draggable');
     tbody.appendChild(row);
     if (columnSettings) applyColumnSettings(columnSettings);
     if (!isRestoringState) {
@@ -2395,7 +2450,7 @@ function addStart(data = {}) {
         </td>
     `;
     enableRowDrag(row);
-    tbody.appendChild(row);
+    insertRowBeforeWrap(row);
     const durationInput = row.querySelector('.start-duration-input');
     if (durationInput) durationInput.value = duration;
     if (columnSettings) applyColumnSettings(columnSettings);
@@ -2432,7 +2487,7 @@ function addUmbau(data = {}) {
         </td>
     `;
     enableRowDrag(row);
-    tbody.appendChild(row);
+    insertUmbauRowAtPosition(row);
     const deptInput = row.querySelector('.umbau-department-input');
     if (deptInput) deptInput.value = department;
     const durationInput = row.querySelector('.umbau-duration-input');

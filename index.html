@@ -925,6 +925,10 @@
             display: none;
         }
 
+        .print-field-value {
+            display: none;
+        }
+
         .start-row td {
             background: transparent !important;
             font-weight: 600;
@@ -1831,6 +1835,7 @@ let draggedRow = null;
 let draggedColumnKey = null;
 let columnOverlayVisible = false;
 let columnSettings = null;
+let printCleanupTasks = [];
 
 const COLUMN_SETTINGS_KEY = 'shotlist-column-settings';
 
@@ -2037,6 +2042,57 @@ function updateBreakRowMetadata(row, shotCount, scenesSet) {
     }
 }
 
+function getPrintFieldText(field) {
+    if (!field) return '';
+    if (field.tagName === 'SELECT') {
+        const option = field.options[field.selectedIndex];
+        return option ? option.text.trim() : (field.value || '').trim();
+    }
+    if (field.tagName === 'TEXTAREA') {
+        return field.value || '';
+    }
+    if (field.tagName === 'INPUT') {
+        const type = (field.getAttribute('type') || 'text').toLowerCase();
+        if (type === 'file') return '';
+        if (type === 'number') {
+            const parentKey = field.closest('td')?.getAttribute('data-col-key') || '';
+            if (['setup','shoot'].includes(parentKey) || field.classList.contains('start-duration-input') || field.classList.contains('umbau-duration-input')) {
+                return field.value ? `${field.value}m` : '';
+            }
+        }
+        return field.value || '';
+    }
+    return '';
+}
+
+function prepareTableForPrint() {
+    cleanupAfterPrint();
+    document.body.classList.add('printing-active');
+    const fields = document.querySelectorAll('.shotlist-table select, .shotlist-table textarea, .shotlist-table input');
+    fields.forEach(field => {
+        if (field.getAttribute('type') === 'file') return;
+        const span = document.createElement('span');
+        span.className = 'print-field-value';
+        const text = getPrintFieldText(field);
+        if (!text) span.classList.add('print-field-empty');
+        span.textContent = text || '—';
+        field.parentNode.insertBefore(span, field);
+        printCleanupTasks.push(() => {
+            span.remove();
+        });
+    });
+}
+
+function cleanupAfterPrint() {
+    if (printCleanupTasks && printCleanupTasks.length) {
+        printCleanupTasks.forEach(task => {
+            try { task(); } catch (err) { console.error(err); }
+        });
+    }
+    printCleanupTasks = [];
+    document.body.classList.remove('printing-active');
+}
+
 function populatePrintReferences() {
     const tbody = document.getElementById('shotlistBody');
     const refPage = document.getElementById('printReferencePage');
@@ -2116,7 +2172,22 @@ function populatePrintSections() {
 function triggerPrint() {
     calculateTime();
     populatePrintSections();
-    setTimeout(() => window.print(), 50);
+    prepareTableForPrint();
+    let cleaned = false;
+    const finish = () => {
+        if (cleaned) return;
+        cleaned = true;
+        cleanupAfterPrint();
+    };
+    const afterPrintHandler = () => {
+        finish();
+        window.removeEventListener('afterprint', afterPrintHandler);
+    };
+    window.addEventListener('afterprint', afterPrintHandler);
+    setTimeout(() => {
+        window.print();
+        setTimeout(finish, 200);
+    }, 50);
 }
 
 function updateShotCount(count) {
@@ -2811,6 +2882,43 @@ window.onload = function() {
         }
         #printReferencePage:not(.has-images) {
             display: none !important;
+        }
+        body.printing-active .shotlist-table td,
+        body.printing-active .shotlist-table th {
+            line-height: 1.25;
+        }
+        .shotlist-table {
+            table-layout: fixed;
+            border-collapse: collapse;
+        }
+        .shotlist-table thead th {
+            background: #e9ecef !important;
+            color: #212529 !important;
+            font-weight: 700;
+            border: 1px solid rgba(0,0,0,0.2);
+        }
+        .shotlist-table tbody td {
+            border: 1px solid rgba(0,0,0,0.14);
+            vertical-align: top;
+            word-break: break-word;
+            white-space: normal;
+        }
+        .shotlist-table th,
+        .shotlist-table td {
+            padding: 4px 3px;
+            font-size: 11px;
+        }
+        body.printing-active .shotlist-table select,
+        body.printing-active .shotlist-table textarea,
+        body.printing-active .shotlist-table input {
+            display: none !important;
+        }
+        body.printing-active .print-field-value {
+            display: block;
+            white-space: pre-wrap;
+        }
+        body.printing-active .print-field-value.print-field-empty {
+            color: #adb5bd;
         }
     </style>
 </body>

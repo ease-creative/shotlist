@@ -665,6 +665,15 @@
             opacity: 0.6;
             background: var(--color-bg-tertiary);
         }
+
+        .wrap-total-primary {
+            font-weight: 600;
+        }
+
+        .wrap-total-net {
+            color: var(--color-text-secondary);
+            font-style: italic;
+        }
         
         .table-container {
             overflow-x: auto;
@@ -3751,6 +3760,7 @@ function calculateTime() {
     const tbody = document.getElementById('shotlistBody');
     if (!tbody) return;
     let total = 0;
+    let totalPauseMinutes = 0;
     let shotCount = 0;
     const scenesSet = new Set();
     const sceneMetrics = new Map();
@@ -3798,6 +3808,7 @@ function calculateTime() {
             if (display) display.textContent = v + 'm';
             rowDurationDisplay = v;
             rowDurationContribution = v;
+            totalPauseMinutes += v;
             currentSegment = null;
             currentLocationSegment = null;
             specialType = 'pause';
@@ -4099,6 +4110,7 @@ function calculateTime() {
     updateShotCount(shotCount);
     document.getElementById('totalTimeDisplay').textContent = formatTotalDuration(total);
     updateWrapStatus(total);
+    updateWrapNetto(total, totalPauseMinutes);
 }
 
 function updateWrapStatus(totalMinutes) {
@@ -4149,6 +4161,25 @@ function updateWrapStatus(totalMinutes) {
         diffEl.textContent = 'Plan erfüllt';
         diffCard.className = 'stat-card stat-diff neutral';
     }
+}
+
+function updateWrapNetto(totalMinutes, pauseMinutes) {
+    const wrapRow = getWrapRow();
+    if (!wrapRow) return;
+    const totalCell = wrapRow.querySelector('[data-col-key="total"] .time-display');
+    const displayTarget = wrapRow.querySelector('[data-col-key="total"]');
+    if (!displayTarget) return;
+
+    const netMinutes = Math.max(0, (parseInt(totalMinutes, 10) || 0) - (parseInt(pauseMinutes, 10) || 0));
+    const totalLabel = formatTotalDuration(totalMinutes);
+    const netLabel = formatTotalDuration(netMinutes);
+
+    const hasPause = (parseInt(pauseMinutes, 10) || 0) > 0;
+    const markup = hasPause
+        ? `<span class="wrap-total-primary">${totalLabel}</span> <span class="wrap-total-net">(${netLabel} netto)</span>`
+        : `<span class="wrap-total-primary">${totalLabel}</span>`;
+
+    displayTarget.innerHTML = markup;
 }
 
 function exportToExcel() {

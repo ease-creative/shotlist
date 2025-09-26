@@ -631,6 +631,7 @@
 
         .scene-summary-table td {
             color: #343a40;
+            vertical-align: top;
         }
 
         .scene-summary-table tr:last-child td {
@@ -653,8 +654,9 @@
         }
 
         .scene-summary-location {
-            white-space: nowrap;
+            white-space: normal;
             color: #343a40;
+            word-break: break-word;
         }
 
         .scene-summary-header {
@@ -2604,10 +2606,9 @@ function formatDurationLabel(totalMinutes) {
 
 function getLocationShort(value) {
     if (!value) return '';
-    const normalized = String(value).trim();
+    const normalized = String(value).replace(/[\s\n\t]+/g, ' ').trim();
     if (!normalized) return '';
-    const firstWord = normalized.split(/\s+/)[0];
-    return firstWord || '';
+    return normalized;
 }
 
 function sanitizePrintText(value) {
@@ -3208,7 +3209,7 @@ function calculateTime() {
         let rowDuration = 0;
         let sceneValueForRow = '';
         let shotLabelForRow = '';
-        let locationShort = '';
+        let locationLabel = '';
         let rowStartMinutes = null;
         let rowEndMinutes = null;
         const isShotRow = row.classList.contains('shot-row');
@@ -3221,7 +3222,7 @@ function calculateTime() {
             shotLabelForRow = shotInput ? shotInput.value.trim() : '';
             const locationField = row.querySelector('[data-col-key="location"] textarea');
             const rawLocation = locationField ? locationField.value : '';
-            locationShort = getLocationShort(rawLocation);
+            locationLabel = getLocationShort(rawLocation);
         }
         if (row.classList.contains('pause-row')) {
             updateBreakRowMetadata(row, shotCount, scenesSet);
@@ -3291,8 +3292,8 @@ function calculateTime() {
             if (rowEndMinutes != null) {
                 metric.end = metric.end == null ? rowEndMinutes : Math.max(metric.end, rowEndMinutes);
             }
-            if (locationShort) {
-                metric.locations.add(locationShort);
+            if (locationLabel) {
+                metric.locations.add(locationLabel);
             }
             sceneMetrics.set(key, metric);
 
@@ -3322,8 +3323,8 @@ function calculateTime() {
             currentSegment.count += 1;
             currentSegment.duration += rowDuration;
             currentSegment.shots.push(shotLabelForRow || '—');
-            if (locationShort) {
-                currentSegment.locations.add(locationShort);
+            if (locationLabel) {
+                currentSegment.locations.add(locationLabel);
             }
         }
 

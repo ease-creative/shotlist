@@ -2821,6 +2821,33 @@ function parseStartMinutes() {
     return (h * 60 + m) % (24 * 60);
 }
 
+function timeStringToMinutes(value) {
+    if (!value || typeof value !== 'string') return null;
+    if (!value.includes(':')) return null;
+    const [hStr, mStr] = value.split(':');
+    if (mStr === undefined) return null;
+    const hours = Number(hStr);
+    const minutes = Number(mStr);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+    const minutesInDay = 24 * 60;
+    const total = hours * 60 + minutes;
+    const normalized = ((total % minutesInDay) + minutesInDay) % minutesInDay;
+    return normalized;
+}
+
+function getTotalPauseMinutes() {
+    const tbody = document.getElementById('shotlistBody');
+    if (!tbody) return 0;
+    let totalPause = 0;
+    tbody.querySelectorAll('tr.pause-row input[type="number"]').forEach(input => {
+        const value = parseInt(input.value, 10);
+        if (!Number.isNaN(value) && value > 0) {
+            totalPause += value;
+        }
+    });
+    return totalPause;
+}
+
 function formatMinutesToHHMM(totalMinutes) {
     const minutesInDay = 24 * 60;
     let normalized = totalMinutes % minutesInDay;
@@ -3386,7 +3413,9 @@ function updateSceneSummary(summaryData) {
 
     const formatDurationValue = (entry) => {
         if (entry && entry.type === 'special' && entry.metric && entry.metric.specialType === 'wrap') {
-            return '—';
+            const netMinutes = computeWrapNetMinutes(entry.metric);
+            if (netMinutes == null) return '—';
+            return formatDurationLabel(netMinutes);
         }
         const minutes = entry && entry.metric ? entry.metric.duration : null;
         return formatDurationLabel(minutes);
@@ -4161,6 +4190,35 @@ function updateWrapStatus(totalMinutes) {
         diffEl.textContent = 'Plan erfüllt';
         diffCard.className = 'stat-card stat-diff neutral';
     }
+}
+
+function computeWrapNetMinutes(wrapMetric) {
+    const startAbs = parseStartMinutes();
+    if (startAbs == null) return null;
+
+    let wrapAbs = null;
+    if (wrapMetric && typeof wrapMetric.start === 'number' && !Number.isNaN(wrapMetric.start)) {
+        wrapAbs = wrapMetric.start;
+    }
+    if (wrapAbs == null) {
+        const wrapInput = document.getElementById('wrapTime');
+        const wrapVal = wrapInput ? wrapInput.value : '';
+        const parsedWrap = timeStringToMinutes(wrapVal);
+        if (parsedWrap != null) {
+            wrapAbs = parsedWrap;
+        }
+    }
+    if (wrapAbs == null) return null;
+
+    const minutesInDay = 24 * 60;
+    let span = wrapAbs - startAbs;
+    if (!Number.isFinite(span)) return null;
+    if (span < 0) span += minutesInDay;
+    if (span <= 0) return null;
+
+    const pauseMinutes = getTotalPauseMinutes();
+    const net = Math.max(span - pauseMinutes, 0);
+    return net;
 }
 
 function updateWrapNetto(totalMinutes, pauseMinutes) {

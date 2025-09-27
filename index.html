@@ -1700,7 +1700,7 @@
                         <div class="stat-card stat-card-shots">
                             <span class="stat-label">Shots</span>
                             <span class="stat-value" id="shotCountDisplay">0</span>
-                            <button type="button" id="previewToggleBtn" class="preview-toggle-btn" onclick="togglePreviewMode()" aria-pressed="false" title="Preview-Modus umschalten">👁 Preview</button>
+                            <button type="button" id="previewToggleBtn" class="preview-toggle-btn" onclick="togglePreviewMode()" aria-pressed="false" title="Preview-Modus umschalten">Preview</button>
                         </div>
                         <div class="stat-card">
                             <span class="stat-label">Total Time</span>
@@ -1774,31 +1774,31 @@
         
         <div class="controls">
             <div class="version-controls">
-                <button class="btn btn-version" onclick="openSaveVersionModal()">💾 Version speichern</button>
+                <button class="btn btn-version" onclick="openSaveVersionModal()">Version speichern</button>
                 <select id="versionSelect" onchange="loadSelectedVersion()" class="version-select" data-preview-ignore="1">
                     <option value="">Versionen...</option>
                 </select>
-                <button class="btn btn-version-danger" onclick="deleteSelectedVersion()" title="Ausgewählte Version löschen">🗑️</button>
+                <button class="btn btn-version-danger" onclick="deleteSelectedVersion()" title="Ausgewählte Version löschen">Version löschen</button>
             </div>
             <div class="project-controls">
-                <button class="btn btn-project" onclick="saveProject()">💼 Projekt speichern</button>
+                <button class="btn btn-project" onclick="saveProject()">Projekt speichern</button>
                 <select id="projectSelect" onchange="loadSelectedProject()" class="project-select" data-preview-ignore="1">
                     <option value="">Projekt laden...</option>
                 </select>
                 <button type="button" class="btn btn-project-secondary" id="columnMenuButton">Spalten</button>
-                <button class="btn btn-project-secondary" onclick="exportProject()">⬇️ Export</button>
-                <button class="btn btn-project-secondary" onclick="document.getElementById('projectImportInput').click()">⬆️ Import</button>
+                <button class="btn btn-project-secondary" onclick="exportProject()">Export</button>
+                <button class="btn btn-project-secondary" onclick="document.getElementById('projectImportInput').click()">Import</button>
                 <input type="file" id="projectImportInput" accept="application/json" style="display:none" onchange="importProjectFile(event)">
             </div>
             <div class="action-controls">
                 <button class="btn" onclick="addShot()">+ Shot</button>
-                <button class="btn btn-pause" onclick="addPause()">⏸️ Pause</button>
-                <button class="btn btn-wrap" onclick="addWrap()">🎬 WRAP</button>
+                <button class="btn btn-pause" onclick="addPause()">Pause</button>
+                <button class="btn btn-wrap" onclick="addWrap()">Wrap</button>
                 <button class="btn btn-start" onclick="addStart()">START</button>
                 <button class="btn btn-umbau" onclick="addUmbau()">UMBAU</button>
                 <div class="reset-group">
                     <button class="btn btn-danger" onclick="clearAll()" id="resetButton">Reset</button>
-                    <button class="btn btn-undo" id="undoResetButton" style="display:none;" onclick="undoClear()">↶ Rückgängig</button>
+                    <button class="btn btn-undo" id="undoResetButton" style="display:none;" onclick="undoClear()">Rückgängig</button>
                 </div>
             </div>
         </div>
@@ -1861,9 +1861,9 @@
                     <td data-col-key="total" class="time-display col-total">0m</td>
                     <td data-col-key="time" class="start-time-cell col-start">--:--</td>
                     <td data-col-key="action" class="action-cell col-action">
-                        <button class="action-btn parallel-btn" type="button" onclick="toggleParallelShot(this)" title="Zeitgleich mit vorherigem Shot" aria-pressed="false">↔️</button>
-                        <button class="action-btn delete-btn" onclick="deleteRow(this)">🗑️</button>
-                        <button class="action-btn duplicate-btn" onclick="duplicateRow(this)">⧉</button>
+                        <button class="action-btn parallel-btn" type="button" onclick="toggleParallelShot(this)" title="Zeitgleich mit vorherigem Shot" aria-pressed="false">Parallel</button>
+                        <button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button>
+                        <button class="action-btn duplicate-btn" onclick="duplicateRow(this)">Duplizieren</button>
                     </td>
                 </tr>
             </template>
@@ -1885,9 +1885,9 @@
         <div class="export-section">
             <h3>Export & Speichern</h3>
             <div class="export-buttons">
-                <button class="btn btn-success" onclick="exportToExcel()">📊 Als Excel exportieren</button>
-                <button class="btn btn-success" onclick="exportToPDF()">📄 Als PDF exportieren</button>
-                <button class="btn" onclick="printShotlist()">🖨️ Drucken</button>
+                <button class="btn btn-success" onclick="exportToExcel()">Als Excel exportieren</button>
+                <button class="btn btn-success" onclick="exportToPDF()">Als PDF exportieren</button>
+                <button class="btn" onclick="printShotlist()">Drucken</button>
             </div>
         </div>
     </div>
@@ -2130,7 +2130,7 @@ function updateColumnOverlayList() {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'column-visibility-btn' + (visibility[key] === false ? ' hidden' : '');
-        button.textContent = visibility[key] === false ? '🚫' : '👁';
+    button.textContent = visibility[key] === false ? 'Aus' : 'An';
         button.title = 'Spalte ein-/ausblenden';
         button.classList.toggle('hidden', visibility[key] === false);
         button.addEventListener('click', (evt) => {
@@ -2680,7 +2680,7 @@ function applyPreviewMode(active) {
     body.classList.toggle('preview-mode', !!active);
     const btn = document.getElementById('previewToggleBtn');
     if (btn) {
-        btn.textContent = active ? '✎ Edit' : '👁 Preview';
+        btn.textContent = active ? 'Edit' : 'Preview';
         btn.setAttribute('aria-pressed', active ? 'true' : 'false');
         btn.classList.toggle('active', !!active);
     }
@@ -3919,7 +3919,7 @@ function addPause() {
             </div>
         </td>
         <td data-col-key="action" class="action-cell">
-            <button class="action-btn delete-btn" onclick="deleteRow(this)">🗑️</button>
+            <button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button>
         </td>
     `;
     enableRowDrag(row);
@@ -3953,7 +3953,7 @@ function addWrap() {
                 </div>
             </td>
             <td data-col-key="action" class="action-cell">
-                <button class="action-btn delete-btn" onclick="deleteRow(this)">🗑️</button>
+                <button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button>
             </td>
         `;
         registerRow(row);
@@ -3993,7 +3993,7 @@ function addStart(data = {}) {
             </div>
         </td>
         <td data-col-key="action" class="action-cell">
-            <button class="action-btn delete-btn" onclick="deleteRow(this)">🗑️</button>
+            <button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button>
         </td>
     `;
     enableRowDrag(row);
@@ -4035,7 +4035,7 @@ function addUmbau(data = {}) {
             </div>
         </td>
         <td data-col-key="action" class="action-cell">
-            <button class="action-btn delete-btn" onclick="deleteRow(this)">🗑️</button>
+            <button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button>
         </td>
     `;
     enableRowDrag(row);

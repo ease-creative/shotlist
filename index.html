@@ -841,7 +841,7 @@
             font-weight: normal;
         }
 
-        .scene-summary-duration .duration-negative {
+        .duration-negative {
             font-style: italic;
         }
 
@@ -1261,6 +1261,25 @@
             color: var(--color-text-primary);
         }
 
+        .special-label-cell {
+            text-align: center;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--color-text-primary);
+        }
+
+        .special-total-cell,
+        .special-time-cell {
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .special-total-cell .time-display,
+        .special-time-cell .start-time-cell {
+            display: inline-block;
+        }
+
         .pause-row:hover {
             background: linear-gradient(135deg, rgba(156,133,0,0.45) 0%, rgba(156,133,0,0.26) 100%) !important;
         }
@@ -1454,6 +1473,16 @@
             background: var(--color-input-bg);
             color: var(--color-input-text);
             border: 1px solid var(--color-input-border);
+        }
+
+        .umbau-department-label,
+        .umbau-duration-label,
+        .pause-duration-label {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-weight: 600;
+            color: var(--color-text-secondary);
         }
 
         .draggable-row.dragging {
@@ -2373,6 +2402,31 @@ function getProjects() {
 
 function setProjects(projects) {
     localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(projects));
+}
+
+// === Server-Integration ===
+async function saveProjectToServer(snapshot, projectName) {
+    try {
+        const response = await fetch("http://192.168.178.178:3000/save", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-api-key": "ELjxw99m89a8dPOR8B0xIgJWnOb2CvA9/4I7ghsQGvU=" // <-- HIER deinen Key eintragen
+            },
+            body: JSON.stringify({
+                name: projectName,
+                state: snapshot
+            })
+        });
+
+        if (!response.ok) throw new Error("Server-Fehler");
+        const result = await response.json();
+        console.log("Projekt am Server gespeichert:", result);
+        alert("✅ Projekt erfolgreich am Server gespeichert!");
+    } catch (err) {
+        console.error("❌ Fehler beim Speichern:", err);
+        alert("Konnte nicht am Server speichern!");
+    }
 }
 
 function getActiveProject() {
@@ -3902,26 +3956,30 @@ function addPause() {
     const tbody = document.getElementById('shotlistBody');
     const row = document.createElement('tr');
     row.className = 'pause-row';
-    const mainColSpan = COLUMN_DEFS.length - 2;
-    row.innerHTML = `
-        <td data-col-key="scene" class="break-meta-cell"><div class="break-meta"><span class="break-shots">Shots: 0</span><span class="break-scenes">Szenen: –</span></div></td>
-        <td data-col-key="shot" class="full-row-cell" colspan="${mainColSpan}">
-            <div class="full-row-sections pause-row-content">
-                <div class="full-row-left"></div>
-                <div class="full-row-center"><span class="pause-label">⏸️ PAUSE</span></div>
-                <div class="full-row-right">
-                    <label>Dauer
-                        <input type="number" min="0" value="30" onchange="calculateTime();saveState();" class="time-input">
-                    </label>
-                    <span class="time-display">30m</span>
-                    <span class="start-time-cell">--:--</span>
-                </div>
-            </div>
-        </td>
-        <td data-col-key="action" class="action-cell">
-            <button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button>
-        </td>
-    `;
+    const defaultDuration = 30;
+    const cells = COLUMN_DEFS.map(def => {
+        const key = def.key;
+        const colClass = `col-${key}`;
+        switch (key) {
+            case 'scene':
+                return `<td data-col-key="scene" class="break-meta-cell ${colClass}"><div class="break-meta"><span class="break-shots">Shots: 0</span><span class="break-scenes">Szenen: –</span></div></td>`;
+            case 'shot':
+                return `<td data-col-key="shot" class="special-label-cell ${colClass}"><span class="pause-label">Pause</span></td>`;
+            case 'setup':
+                return `<td data-col-key="setup" class="${colClass}"><label class="pause-duration-label">Dauer<input type="number" min="0" value="${defaultDuration}" onchange="calculateTime();saveState();" class="time-input pause-duration-input"></label></td>`;
+            case 'shoot':
+                return `<td data-col-key="shoot" class="${colClass}"></td>`;
+            case 'total':
+                return `<td data-col-key="total" class="special-total-cell ${colClass}"><span class="time-display duration-negative">-${defaultDuration}m</span></td>`;
+            case 'time':
+                return `<td data-col-key="time" class="special-time-cell ${colClass}"><span class="start-time-cell">--:--</span></td>`;
+            case 'action':
+                return `<td data-col-key="action" class="action-cell ${colClass}"><button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button></td>`;
+            default:
+                return `<td data-col-key="${key}" class="${colClass}"></td>`;
+        }
+    }).join('');
+    row.innerHTML = cells;
     enableRowDrag(row);
     registerRow(row);
     insertRowBeforeWrap(row);
@@ -3937,25 +3995,27 @@ function addWrap() {
     if (!tbody) return;
     let row = getWrapRow();
     if (!row) {
-        const mainColSpan = COLUMN_DEFS.length - 2;
         row = document.createElement('tr');
         row.className = 'wrap-row';
-        row.innerHTML = `
-            <td data-col-key="scene" class="break-meta-cell"><div class="break-meta"><span class="break-shots">Total Shots: 0</span><span class="break-scenes">Szenen: –</span></div></td>
-            <td data-col-key="shot" class="full-row-cell" colspan="${mainColSpan}">
-                <div class="full-row-sections wrap-row-content">
-                    <div class="full-row-left"></div>
-                    <div class="full-row-center"><span class="wrap-label">🎬 WRAP</span></div>
-                    <div class="full-row-right">
-                        <span class="time-display">--</span>
-                        <span class="start-time-cell">--:--</span>
-                    </div>
-                </div>
-            </td>
-            <td data-col-key="action" class="action-cell">
-                <button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button>
-            </td>
-        `;
+        const cells = COLUMN_DEFS.map(def => {
+            const key = def.key;
+            const colClass = `col-${key}`;
+            switch (key) {
+                case 'scene':
+                    return `<td data-col-key="scene" class="break-meta-cell ${colClass}"><div class="break-meta"><span class="break-shots">Total Shots: 0</span><span class="break-scenes">Szenen: –</span></div></td>`;
+                case 'shot':
+                    return `<td data-col-key="shot" class="special-label-cell ${colClass}"><span class="wrap-label">Wrap</span></td>`;
+                case 'total':
+                    return `<td data-col-key="total" class="special-total-cell ${colClass}"><span class="time-display">--</span></td>`;
+                case 'time':
+                    return `<td data-col-key="time" class="special-time-cell ${colClass}"><span class="start-time-cell">--:--</span></td>`;
+                case 'action':
+                    return `<td data-col-key="action" class="action-cell ${colClass}"><button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button></td>`;
+                default:
+                    return `<td data-col-key="${key}" class="${colClass}"></td>`;
+            }
+        }).join('');
+        row.innerHTML = cells;
         registerRow(row);
     }
     row.classList.remove('draggable-row');
@@ -3974,28 +4034,27 @@ function addStart(data = {}) {
     const row = document.createElement('tr');
     row.className = 'start-row';
     const duration = Number.isFinite(parseInt(data.duration, 10)) ? parseInt(data.duration, 10) : 0;
-    const mainColSpan = COLUMN_DEFS.length - 2;
-    row.innerHTML = `
-        <td data-col-key="scene" class="break-meta-cell"></td>
-        <td data-col-key="shot" class="full-row-cell" colspan="${mainColSpan}">
-            <div class="full-row-sections start-row-content">
-                <div class="full-row-left">
-                    <div class="start-duration">
-                        <label>Briefing/Aufbau</label>
-                        <input type="number" min="0" step="1" class="time-input start-duration-input" value="${duration}" onchange="calculateTime();saveState();">
-                    </div>
-                </div>
-                <div class="full-row-center"><span class="start-label">START</span></div>
-                <div class="full-row-right">
-                    <span class="time-display">${duration ? duration + 'm' : '0m'}</span>
-                    <span class="start-time-cell">--:--</span>
-                </div>
-            </div>
-        </td>
-        <td data-col-key="action" class="action-cell">
-            <button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button>
-        </td>
-    `;
+    const cells = COLUMN_DEFS.map(def => {
+        const key = def.key;
+        const colClass = `col-${key}`;
+        switch (key) {
+            case 'scene':
+                return `<td data-col-key="scene" class="break-meta-cell ${colClass}"></td>`;
+            case 'shot':
+                return `<td data-col-key="shot" class="special-label-cell ${colClass}"><span class="start-label">Start</span></td>`;
+            case 'setup':
+                return `<td data-col-key="setup" class="${colClass}"><div class="start-duration"><label>Briefing/Aufbau</label><input type="number" min="0" step="1" class="time-input start-duration-input" value="${duration}" onchange="calculateTime();saveState();"></div></td>`;
+            case 'total':
+                return `<td data-col-key="total" class="special-total-cell ${colClass}"><span class="time-display">${duration ? duration + 'm' : '0m'}</span></td>`;
+            case 'time':
+                return `<td data-col-key="time" class="special-time-cell ${colClass}"><span class="start-time-cell">--:--</span></td>`;
+            case 'action':
+                return `<td data-col-key="action" class="action-cell ${colClass}"><button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button></td>`;
+            default:
+                return `<td data-col-key="${key}" class="${colClass}"></td>`;
+        }
+    }).join('');
+    row.innerHTML = cells;
     enableRowDrag(row);
     registerRow(row);
     insertRowBeforeWrap(row);
@@ -4014,30 +4073,29 @@ function addUmbau(data = {}) {
     row.className = 'umbau-row';
     const duration = Number.isFinite(parseInt(data.duration, 10)) ? parseInt(data.duration, 10) : 0;
     const department = data.department || '';
-    const mainColSpan = COLUMN_DEFS.length - 2;
-    row.innerHTML = `
-        <td data-col-key="scene" class="break-meta-cell"></td>
-        <td data-col-key="shot" class="full-row-cell" colspan="${mainColSpan}">
-            <div class="full-row-sections umbau-row-content">
-                <div class="full-row-left">
-                    <label>Departement
-                        <input type="text" placeholder="Departement" class="umbau-department-input" onchange="saveState()" value="${department.replace(/"/g,'&quot;')}">
-                    </label>
-                </div>
-                <div class="full-row-center"><span class="umbau-label">UMBAU</span></div>
-                <div class="full-row-right">
-                    <label>Dauer
-                        <input type="number" min="0" class="time-input umbau-duration-input" onchange="calculateTime();saveState();">
-                    </label>
-                    <span class="time-display">0m</span>
-                    <span class="start-time-cell">--:--</span>
-                </div>
-            </div>
-        </td>
-        <td data-col-key="action" class="action-cell">
-            <button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button>
-        </td>
-    `;
+    const cells = COLUMN_DEFS.map(def => {
+        const key = def.key;
+        const colClass = `col-${key}`;
+        switch (key) {
+            case 'scene':
+                return `<td data-col-key="scene" class="break-meta-cell ${colClass}"></td>`;
+            case 'shot':
+                return `<td data-col-key="shot" class="special-label-cell ${colClass}"><span class="umbau-label">Umbau</span></td>`;
+            case 'description':
+                return `<td data-col-key="description" class="${colClass}"><label class="umbau-department-label">Departement<input type="text" placeholder="Departement" class="umbau-department-input" onchange="saveState()" value="${department.replace(/"/g,'&quot;')}"></label></td>`;
+            case 'shoot':
+                return `<td data-col-key="shoot" class="${colClass}"><label class="umbau-duration-label">Dauer<input type="number" min="0" class="time-input umbau-duration-input" onchange="calculateTime();saveState();"></label></td>`;
+            case 'total':
+                return `<td data-col-key="total" class="special-total-cell ${colClass}"><span class="time-display">${duration ? duration + 'm' : '0m'}</span></td>`;
+            case 'time':
+                return `<td data-col-key="time" class="special-time-cell ${colClass}"><span class="start-time-cell">--:--</span></td>`;
+            case 'action':
+                return `<td data-col-key="action" class="action-cell ${colClass}"><button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button></td>`;
+            default:
+                return `<td data-col-key="${key}" class="${colClass}"></td>`;
+        }
+    }).join('');
+    row.innerHTML = cells;
     enableRowDrag(row);
     registerRow(row);
     insertUmbauRowAtPosition(row);
@@ -4101,7 +4159,10 @@ function calculateTime() {
             const pause = row.querySelector('input[type="number"]');
             const v = parseInt(pause ? pause.value : 0, 10) || 0;
             const display = row.querySelector('.time-display');
-            if (display) display.textContent = v + 'm';
+            if (display) {
+                display.textContent = `-${v}m`;
+                display.classList.add('duration-negative');
+            }
             rowDurationDisplay = v;
             rowDurationContribution = v;
             totalPauseMinutes += v;
@@ -4113,7 +4174,10 @@ function calculateTime() {
             const input = row.querySelector('.umbau-duration-input');
             const v = parseInt(input ? input.value : 0, 10) || 0;
             const display = row.querySelector('.time-display');
-            if (display) display.textContent = v + 'm';
+            if (display) {
+                display.textContent = `${v}m`;
+                display.classList.remove('duration-negative');
+            }
             rowDurationDisplay = v;
             rowDurationContribution = v;
             currentSegment = null;
@@ -4122,7 +4186,10 @@ function calculateTime() {
             const input = row.querySelector('.start-duration-input');
             const v = parseInt(input ? input.value : 0, 10) || 0;
             const display = row.querySelector('.time-display');
-            if (display) display.textContent = v + 'm';
+            if (display) {
+                display.textContent = `${v}m`;
+                display.classList.remove('duration-negative');
+            }
             rowDurationDisplay = v;
             rowDurationContribution = v;
             currentSegment = null;
@@ -4134,7 +4201,10 @@ function calculateTime() {
             rowDurationDisplay = 0;
             rowDurationContribution = 0;
             const display = row.querySelector('.time-display');
-            if (display) display.textContent = '--';
+            if (display) {
+                display.textContent = '--';
+                display.classList.remove('duration-negative');
+            }
             currentSegment = null;
             currentLocationSegment = null;
             specialType = 'wrap';
@@ -4145,8 +4215,14 @@ function calculateTime() {
             setupMinutes = parseInt(setupCell ? setupCell.value : 0, 10) || 0;
             shootMinutes = parseInt(shootCell ? shootCell.value : 0, 10) || 0;
             const sum = setupMinutes + shootMinutes;
+            if (row.cells[13]) row.cells[13].textContent = sum + 'm';
             rowDurationDisplay = sum;
             rowDurationContribution = sum;
+        }
+
+        if (!row.classList.contains('pause-row')) {
+            const display = row.querySelector('.time-display');
+            if (display) display.classList.remove('duration-negative');
         }
 
         const startValid = currentStart != null && !Number.isNaN(currentStart);
@@ -4512,7 +4588,6 @@ function computeWrapNetMinutes(wrapMetric) {
 function updateWrapNetto(totalMinutes, pauseMinutes) {
     const wrapRow = getWrapRow();
     if (!wrapRow) return;
-    const totalCell = wrapRow.querySelector('[data-col-key="total"] .time-display');
     const displayTarget = wrapRow.querySelector('[data-col-key="total"]');
     if (!displayTarget) return;
 
@@ -4522,8 +4597,8 @@ function updateWrapNetto(totalMinutes, pauseMinutes) {
 
     const hasPause = (parseInt(pauseMinutes, 10) || 0) > 0;
     const markup = hasPause
-        ? `<span class="wrap-total-primary">${totalLabel}</span> <span class="wrap-total-net">(${netLabel} netto)</span>`
-        : `<span class="wrap-total-primary">${totalLabel}</span>`;
+        ? `<span class="time-display wrap-total-primary">${totalLabel}</span> <span class="wrap-total-net">(${netLabel} netto)</span>`
+        : `<span class="time-display wrap-total-primary">${totalLabel}</span>`;
 
     displayTarget.innerHTML = markup;
 }

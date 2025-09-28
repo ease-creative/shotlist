@@ -2408,20 +2408,20 @@ function setProjects(projects) {
 }
 
 // === Server-Integration ===
-async function saveProjectToServer(snapshot, projectName) {
+async function saveProjectToServer(projectName, snapshot) {
   try {
-    const response = await fetch(`${SHOTLIST_SERVER}/public-save`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const res = await fetch(`${SHOTLIST_SERVER}/public-save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: projectName, state: snapshot })
     });
-    if (!response.ok) throw new Error("Server-Fehler");
-    const result = await response.json();
-    console.log("Projekt am Server gespeichert:", result);
-    alert("✅ Projekt erfolgreich am Server gespeichert!");
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    console.log("✅ Gespeichert:", data);
+    return data;
   } catch (err) {
     console.error("❌ Fehler beim Speichern:", err);
-    alert("Konnte nicht am Server speichern!");
+    throw err;
   }
 }
 

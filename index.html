@@ -1955,6 +1955,9 @@
     <!-- Neuer Script-Block -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script>
+// Base URL für Server (einfach anpassen wenn Port oder Host sich ändern)
+const SHOTLIST_SERVER = "http://192.168.178.178:44610";
+
 // Shotlist Funktionen
 const VERSION_STORAGE_KEY = 'shotlist-versions';
 const CURRENT_STATE_KEY = 'shotlist-current';
@@ -2407,15 +2410,14 @@ function setProjects(projects) {
 // === Server-Integration ===
 async function saveProjectToServer(snapshot, projectName) {
   try {
-    const response = await fetch("http://192.168.178.178:3000/save", {
+    const response = await fetch(`${SHOTLIST_SERVER}/save`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
-        // KEIN x-api-key mehr im Frontend!
+        // kein Key hier!
       },
       body: JSON.stringify({ name: projectName, state: snapshot })
     });
-
     if (!response.ok) throw new Error("Server-Fehler");
     const result = await response.json();
     console.log("Projekt am Server gespeichert:", result);

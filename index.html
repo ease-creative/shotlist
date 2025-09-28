@@ -2406,27 +2406,24 @@ function setProjects(projects) {
 
 // === Server-Integration ===
 async function saveProjectToServer(snapshot, projectName) {
-    try {
-        const response = await fetch("http://192.168.178.178:3000/save", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "x-api-key": "ELjxw99m89a8dPOR8B0xIgJWnOb2CvA9/4I7ghsQGvU=" // <-- HIER deinen Key eintragen
-            },
-            body: JSON.stringify({
-                name: projectName,
-                state: snapshot
-            })
-        });
+  try {
+    const response = await fetch("http://192.168.178.178:3000/save", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+        // KEIN x-api-key mehr im Frontend!
+      },
+      body: JSON.stringify({ name: projectName, state: snapshot })
+    });
 
-        if (!response.ok) throw new Error("Server-Fehler");
-        const result = await response.json();
-        console.log("Projekt am Server gespeichert:", result);
-        alert("✅ Projekt erfolgreich am Server gespeichert!");
-    } catch (err) {
-        console.error("❌ Fehler beim Speichern:", err);
-        alert("Konnte nicht am Server speichern!");
-    }
+    if (!response.ok) throw new Error("Server-Fehler");
+    const result = await response.json();
+    console.log("Projekt am Server gespeichert:", result);
+    alert("✅ Projekt erfolgreich am Server gespeichert!");
+  } catch (err) {
+    console.error("❌ Fehler beim Speichern:", err);
+    alert("Konnte nicht am Server speichern!");
+  }
 }
 
 function getActiveProject() {

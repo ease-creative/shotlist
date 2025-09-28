@@ -2410,12 +2410,9 @@ function setProjects(projects) {
 // === Server-Integration ===
 async function saveProjectToServer(snapshot, projectName) {
   try {
-    const response = await fetch(`${SHOTLIST_SERVER}/save`, {
+    const response = await fetch(`${SHOTLIST_SERVER}/public-save`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-        // kein Key hier!
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: projectName, state: snapshot })
     });
     if (!response.ok) throw new Error("Server-Fehler");

@@ -2409,20 +2409,26 @@ function setProjects(projects) {
 
 // === Server-Integration ===
 async function saveProjectToServer(projectName, snapshot) {
-  try {
-    const res = await fetch(`${SHOTLIST_SERVER}/public-save`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: projectName, state: snapshot })
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const data = await res.json();
-    console.log("✅ Gespeichert:", data);
-    return data;
-  } catch (err) {
-    console.error("❌ Fehler beim Speichern:", err);
-    throw err;
-  }
+    try {
+        const res = await fetch(`${SHOTLIST_SERVER}/public-save`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ name: projectName, state: snapshot })
+        });
+
+        if (!res.ok) {
+            const errMsg = await res.text();
+            throw new Error(errMsg || `Server-Fehler: ${res.status}`);
+        }
+
+        const data = await res.json();
+        console.log("✅ Gespeichert:", data);
+        return data;
+
+    } catch (err) {
+        console.error("❌ Fehler beim Speichern:", err);
+        throw err;
+    }
 }
 
 function getActiveProject() {
@@ -2456,20 +2462,17 @@ function updateProjectSelect() {
     }
 }
 
-function saveProject() {
-    const name = prompt('Projektname eingeben:');
+async function saveProject() {
+    const name = prompt("Projektname eingeben:");
     if (!name) return;
     const snapshot = captureSnapshot();
 
-    // lokal speichern (wie bisher)
-    const projects = getProjects().filter(p => p.name.toLowerCase() !== name.toLowerCase());
-    projects.unshift({name, updated: new Date().toISOString(), state: snapshot});
-    setProjects(projects);
-    setActiveProject(name);
-    updateProjectSelect();
-
-    // NEU: zusätzlich am Server speichern
-    saveProjectToServer(snapshot, name);
+    try {
+        await saveProjectToServer(name, snapshot);
+        alert("✅ Projekt erfolgreich am Server gespeichert!");
+    } catch (err) {
+        alert("❌ Konnte nicht am Server speichern!");
+    }
 }
 
 function loadSelectedProject() {

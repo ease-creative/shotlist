@@ -2464,12 +2464,16 @@ function saveProject() {
     const name = prompt('Projektname eingeben:');
     if (!name) return;
     const snapshot = captureSnapshot();
+
+    // lokal speichern (wie bisher)
     const projects = getProjects().filter(p => p.name.toLowerCase() !== name.toLowerCase());
     projects.unshift({name, updated: new Date().toISOString(), state: snapshot});
     setProjects(projects);
     setActiveProject(name);
     updateProjectSelect();
-    showNotification('Projekt gespeichert!');
+
+    // NEU: zusätzlich am Server speichern
+    saveProjectToServer(snapshot, name);
 }
 
 function loadSelectedProject() {

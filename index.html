@@ -3704,64 +3704,144 @@ function updateSceneSummary(summaryData) {
         return locations.length ? locations.join(', ') : '—';
     };
 
-    const formatShotsList = (entry) => {
-        if (entry && entry.type === 'special') return '—';
-        if (entry && entry.groupType === 'location' && Array.isArray(entry.metric && entry.metric.shotsWithScenes)) {
-            const groups = entry.metric.shotsWithScenes;
-            const formattedGroups = groups.map(group => {
-                const sceneLabel = group.scene || '';
-                return (group.shots || []).map(shot => {
-                    const shotLabel = (shot || '').trim();
-                    return sceneLabel ? `${sceneLabel}.${shotLabel}` : shotLabel;
-                }).filter(Boolean).join(', ');
-            }).filter(Boolean);
-            if (!formattedGroups.length) {
-                return formatList(entry.metric && Array.isArray(entry.metric.shots) ? entry.metric.shots : []);
-            }
-            return formattedGroups.join(' | ');
-        }
-        return formatList(entry.metric && Array.isArray(entry.metric.shots) ? entry.metric.shots : []);
-    };
-
     const formatShotsCount = (entry) => {
         if (!entry || entry.type === 'special') return '—';
-        const count = entry.metric && typeof entry.metric.count === 'number' ? entry.metric.count : null;
-        return count != null ? count : '—';
-    };
-
-    const formatDurationValue = (entry) => {
-        if (entry && entry.type === 'special' && entry.metric && entry.metric.specialType === 'wrap') {
-            const netMinutes = computeWrapNetMinutes(entry.metric);
-            if (netMinutes == null) return '—';
-            return formatDurationLabel(netMinutes);
+        const metric = entry.metric || {};
+        if (entry.type === 'group-header') {
+            return metric.count || 0;
         }
-        if (entry && entry.type === 'special' && entry.metric && entry.metric.specialType === 'pause') {
-            const minutes = entry.metric.duration;
-            if (minutes == null) return '<span class="duration-negative">-—</span>';
-            const label = formatDurationLabel(minutes);
-            return `<span class="duration-negative">-${label}</span>`;
-        }
-        const minutes = entry && entry.metric ? entry.metric.duration : null;
-        return formatDurationLabel(minutes);
-    };
-
-    const formatTimeRange = (entry) => {
-        if (!entry || !entry.metric) return '—';
-        const metric = entry.metric;
-        if (entry.type === 'special' && metric.specialType === 'wrap') {
-            return typeof metric.start === 'number' ? formatMinutesToHHMM(metric.start) : '—';
-        }
-        if (typeof metric.start === 'number') {
-            if (typeof metric.end === 'number' && metric.end !== metric.start) {
-                return `${formatMinutesToHHMM(metric.start)} – ${formatMinutesToHHMM(metric.end)}`;
-            }
-            if (typeof metric.end === 'number') {
-                return `${formatMinutesToHHMM(metric.start)} – ${formatMinutesToHHMM(metric.end)}`;
-            }
-            return formatMinutesToHHMM(metric.start);
+        if (entry.type === 'part') {
+            return metric.shots ? metric.shots.length : 0;
         }
         return '—';
     };
+
+    // Preview mode functionality
+    function togglePreviewMode() {
+        isPreviewMode = !isPreviewMode;
+        document.body.classList.toggle('preview-mode', isPreviewMode);
+        const btn = document.getElementById('previewToggleBtn');
+        if (btn) {
+            btn.textContent = isPreviewMode ? 'Edit' : 'Preview';
+            btn.setAttribute('aria-pressed', isPreviewMode.toString());
+        }
+        refreshPreviewValues();
+    }
+
+    function refreshPreviewValues() {
+        if (!isPreviewMode) return;
+        
+        const fields = getPreviewFields();
+        fields.forEach(field => {
+            const previewSpan = field.parentNode.querySelector('.preview-value');
+            if (previewSpan) {
+                const value = field.value || field.textContent || '';
+                previewSpan.textContent = value;
+            }
+        });
+    }
+
+    const formatShotsList = (entry) => {
+        if (!entry || entry.type === 'special') return '—';
+        const metric = entry.metric || {};
+        
+        if (entry.type === 'group-header') {
+            if (entry.groupType === 'scene') {
+                // For scene headers, show all shots in format "Scene.Shot Shotname"
+                const shots = metric.shots || [];
+                if (!shots.length) return '—';
+                return shots.map(shot => {
+                    const scene = metric.scene || '';
+                    const shotName = shot.shot || '';
+                    const description = shot.description || '';
+                    const shotLabel = shotName ? `${scene}.${shotName}` : scene;
+                    return description ? `${shotLabel} ${description}` : shotLabel;
+                }).join(', ');
+            } else if (entry.groupType === 'location') {
+                // For location headers, show scenes that use this location
+                const scenes = formatSetValues(metric.scenes);
+                return scenes.length ? scenes.join(', ') : '—';
+            }
+        }
+        
+        if (entry.type === 'part') {
+            if (entry.groupType === 'location') {
+                // For location parts, show shots in format "Scene.Shot Shotname"
+                const shots = metric.shots || [];
+                if (!shots.length) return '—';
+                return shots.map(shot => {
+                    const scene = shot.scene || '';
+                    const shotName = shot.shot || '';
+                    const description = shot.description || '';
+                    const shotLabel = shotName ? `${scene}.${shotName}` : scene;
+                    return description ? `${shotLabel} ${description}` : shotLabel;
+                }).join(' | ');
+            } else {
+                // For scene parts, show individual shots
+                const shots = metric.shots || [];
+                if (!shots.length) return '—';
+                return shots.map(shot => {
+                    const scene = metric.scene || '';
+                    const shotName = shot.shot || '';
+                    const description = shot.description || '';
+                    const shotLabel = shotName ? `${scene}.${shotName}` : scene;
+                    return description ? `${shotLabel} ${description}` : shotLabel;
+                }).join(', ');
+            }
+        }
+        
+        return '—';
+    };
+
+    const formatTimeRange = (entry) => {
+        if (!entry || entry.type === 'special') return '—';
+        const metric = entry.metric || {};
+        
+        if (entry.type === 'group-header') {
+            const start = metric.start;
+            const end = metric.end;
+            if (typeof start === 'number' && typeof end === 'number') {
+                const startTime = formatMinutesToHHMM(start);
+                const endTime = formatMinutesToHHMM(end);
+                return `${startTime} - ${endTime}`;
+            }
+            return '—';
+        }
+        
+        if (entry.type === 'part') {
+            const start = metric.start;
+            const end = metric.end;
+            if (typeof start === 'number' && typeof end === 'number') {
+                const startTime = formatMinutesToHHMM(start);
+                const endTime = formatMinutesToHHMM(end);
+                return `${startTime} - ${endTime}`;
+            }
+            return '—';
+        }
+        
+        return '—';
+    };
+
+    const formatDurationValue = (entry) => {
+        if (!entry || entry.type === 'special') return '—';
+        const metric = entry.metric || {};
+        
+        if (entry.type === 'group-header') {
+            const duration = metric.duration || 0;
+            return duration > 0 ? `${duration}m` : '0m';
+        }
+        
+        if (entry.type === 'part') {
+            const duration = metric.duration || 0;
+            return duration > 0 ? `${duration}m` : '0m';
+        }
+        
+        return '—';
+    };
+
+    // Removed duplicate formatShotsList function
+
+    // Clean up duplicate code - keeping the formatting functions defined earlier
 
     const table = document.createElement('table');
     table.className = 'scene-summary-table';

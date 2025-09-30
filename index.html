@@ -1088,20 +1088,28 @@
             background: transparent;
             border: none;
             color: var(--color-text-secondary);
-            padding: 4px;
-            border-radius: 4px;
+            padding: 2px 4px;
+            border-radius: 3px;
             cursor: pointer;
-            font-size: 14px;
-            line-height: 1;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
+            font-size: 10px;
+            line-height: 1.2;
+            display: block;
+            width: 100%;
+            margin: 1px 0;
+            text-align: center;
             transition: background 0.2s ease, color 0.2s ease;
         }
 
         .action-btn:hover {
             background: rgba(255,255,255,0.05);
             color: var(--color-text-primary);
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            min-width: 60px;
         }
 
         .delete-btn {
@@ -1160,21 +1168,22 @@
         }
 
         .reference-upload .upload-btn {
-            background: linear-gradient(135deg, var(--color-accent-start) 0%, #0a4d66 100%);
-            color: var(--color-btn-text);
-            border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
+            background: #3a3a3a;
+            color: #ccc;
+            border: 1px dashed #555;
+            padding: 10px 14px;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 12px;
             font-weight: 600;
-            transition: transform 0.2s;
+            transition: all 0.2s ease;
             margin: 0 auto;
         }
 
         .reference-upload .upload-btn:hover {
-            transform: translateY(-1px);
-            background: linear-gradient(135deg, #0a4d66 0%, var(--color-accent-start) 100%);
+            background: #4a4a4a;
+            border-color: #666;
+            color: #ddd;
         }
 
         .reference-upload.has-image .upload-btn {
@@ -1721,6 +1730,7 @@
         <div class="header">
             <div class="title-section">
                 <h1>SHOTLIST</h1>
+                <button type="button" id="previewToggleBtn" class="preview-toggle-btn" onclick="togglePreviewMode()" aria-pressed="false" title="Preview-Modus umschalten">Preview</button>
                 <input type="text" id="clientName" placeholder="Client Name" class="client-input">
             </div>
             <div class="time-tracking">
@@ -1729,7 +1739,6 @@
                         <div class="stat-card stat-card-shots">
                             <span class="stat-label">Shots</span>
                             <span class="stat-value" id="shotCountDisplay">0</span>
-                            <button type="button" id="previewToggleBtn" class="preview-toggle-btn" onclick="togglePreviewMode()" aria-pressed="false" title="Preview-Modus umschalten">Preview</button>
                         </div>
                         <div class="stat-card">
                             <span class="stat-label">Total Time</span>
@@ -1881,7 +1890,7 @@
                     <td data-col-key="reference" class="reference-cell col-reference">
                         <div class="reference-upload">
                             <input type="file" accept="image/*" style="display:none" onchange="handleImageUpload(this)">
-                            <button class="upload-btn" onclick="this.previousElementSibling.click()">Bild hochladen</button>
+                            <button class="upload-btn" onclick="this.previousElementSibling.click()">Drag & Drop</button>
                             <div class="image-preview"></div>
                         </div>
                     </td>
@@ -1890,9 +1899,11 @@
                     <td data-col-key="total" class="time-display col-total">0m</td>
                     <td data-col-key="time" class="start-time-cell col-start">--:--</td>
                     <td data-col-key="action" class="action-cell col-action">
-                        <button class="action-btn parallel-btn" type="button" onclick="toggleParallelShot(this)" title="Zeitgleich mit vorherigem Shot" aria-pressed="false">Parallel</button>
-                        <button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button>
-                        <button class="action-btn duplicate-btn" onclick="duplicateRow(this)">Duplizieren</button>
+                        <div class="action-buttons">
+                            <button class="action-btn parallel-btn" type="button" onclick="toggleParallelShot(this)" title="Zeitgleich mit vorherigem Shot" aria-pressed="false">Parallel</button>
+                            <button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button>
+                            <button class="action-btn duplicate-btn" onclick="duplicateRow(this)">Duplizieren</button>
+                        </div>
                     </td>
                 </tr>
             </template>
@@ -2597,7 +2608,7 @@ let suppressActiveVersionUpdate = false;
 let selectedRows = new Set();
 let lastSelectedAnchor = null;
 let draggingRows = [];
-let sceneSummaryMode = 'scene';
+let sceneSummaryMode = 0; // 0 = Szenen, 1 = Drehplan, 2 = Locations
 let lastSceneSummaryData = {
     scenes: { aggregated: new Map(), segments: [] },
     locations: { aggregated: new Map(), segments: [] },
@@ -3361,39 +3372,288 @@ function triggerPrint() {
 function updateSceneSummaryToggleLabel() {
     const toggle = document.getElementById('sceneSummaryToggle');
     if (!toggle) return;
-    const copy = {
-        scene: {
+    const copy = [
+        {
             text: 'Ansicht: Szenen',
             description: 'Chronologisch nach Szenen (numerisch sortiert).'
         },
-        plan: {
+        {
             text: 'Ansicht: Drehplan',
             description: 'Szenen in Drehplan-Reihenfolge mit Teilen.'
         },
-        location: {
+        {
             text: 'Ansicht: Locations',
             description: 'Locations in Drehplan-Reihenfolge mit Teilen.'
         }
-    };
-    const current = copy[sceneSummaryMode] || copy.scene;
-    const currentIndex = SCENE_SUMMARY_MODES.indexOf(sceneSummaryMode);
-    const nextIndex = (currentIndex + 1) % SCENE_SUMMARY_MODES.length;
-    const nextMode = SCENE_SUMMARY_MODES[nextIndex];
-    const next = copy[nextMode] || copy.scene;
+    ];
+    const current = copy[sceneSummaryMode] || copy[0];
+    const next = copy[(sceneSummaryMode + 1) % 3];
     toggle.textContent = current.text;
     toggle.dataset.mode = sceneSummaryMode;
     toggle.setAttribute('aria-label', `${current.description} Nächste Ansicht: ${next.text}.`);
     toggle.setAttribute('title', `${current.description} Klick zum Wechsel auf ${next.text}.`);
-    const pressedState = sceneSummaryMode === 'scene' ? 'false' : (sceneSummaryMode === 'plan' ? 'mixed' : 'true');
+    const pressedState = sceneSummaryMode === 0 ? 'false' : (sceneSummaryMode === 1 ? 'mixed' : 'true');
     toggle.setAttribute('aria-pressed', pressedState);
 }
 
 function toggleSceneSummaryMode() {
-    const currentIndex = SCENE_SUMMARY_MODES.indexOf(sceneSummaryMode);
-    const nextIndex = (currentIndex + 1) % SCENE_SUMMARY_MODES.length;
-    sceneSummaryMode = SCENE_SUMMARY_MODES[nextIndex];
+    sceneSummaryMode = (sceneSummaryMode + 1) % 3;
     updateSceneSummaryToggleLabel();
-    updateSceneSummary(lastSceneSummaryData);
+    
+    // Get current snapshot and render appropriate view
+    const snapshot = getCurrentSnapshot();
+    
+    if (sceneSummaryMode === 0) {
+        renderScenes(snapshot);
+    } else if (sceneSummaryMode === 1) {
+        renderDrehplan(snapshot);
+    } else if (sceneSummaryMode === 2) {
+        renderLocations(snapshot);
+    }
+}
+
+function getCurrentSnapshot() {
+    const tbody = document.getElementById('shotlistBody');
+    if (!tbody) return [];
+    
+    const shots = [];
+    Array.from(tbody.rows).forEach(row => {
+        if (row.classList.contains('shot-row')) {
+            const sceneInput = row.querySelector('.scene-number input');
+            const shotInput = row.querySelector('.shot-letter input');
+            const descriptionTextarea = row.querySelector('[data-col-key="description"] textarea');
+            const locationField = row.querySelector('[data-col-key="location"] textarea');
+            
+            const scene = sceneInput ? sceneInput.value.trim() : '';
+            const shot = shotInput ? shotInput.value.trim() : '';
+            const description = descriptionTextarea ? descriptionTextarea.value.trim() : '';
+            const location = locationField ? locationField.value.trim() : '';
+            
+            if (scene || shot || description) {
+                shots.push({
+                    scene,
+                    shot,
+                    description,
+                    location,
+                    order: shots.length // Use current order as default
+                });
+            }
+        }
+    });
+    
+    return shots;
+}
+
+function renderScenes(snapshot) {
+    const container = document.getElementById('sceneSummary');
+    if (!container) return;
+    
+    const body = container.querySelector('.scene-summary-body');
+    if (!body) return;
+    
+    body.innerHTML = '';
+    body.classList.remove('empty');
+    
+    if (!snapshot.length) {
+        body.classList.add('empty');
+        body.textContent = 'Keine Szenen erfasst.';
+        return;
+    }
+    
+    // Group by scene
+    const sceneGroups = {};
+    snapshot.forEach(shot => {
+        const sceneKey = shot.scene || 'Ohne Szene';
+        if (!sceneGroups[sceneKey]) {
+            sceneGroups[sceneKey] = [];
+        }
+        sceneGroups[sceneKey].push(shot);
+    });
+    
+    // Create table
+    const table = document.createElement('table');
+    table.className = 'scene-summary-table';
+    table.innerHTML = `
+        <thead>
+            <tr>
+                <th>Szene</th>
+                <th>Shots</th>
+                <th>Shot-Liste</th>
+                <th>Drehzeit</th>
+                <th>Gesamtdauer</th>
+                <th>Location</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    `;
+    
+    const tbody = table.querySelector('tbody');
+    
+    Object.keys(sceneGroups).sort((a, b) => {
+        const numA = parseInt(a) || 0;
+        const numB = parseInt(b) || 0;
+        return numA - numB;
+    }).forEach(scene => {
+        const shots = sceneGroups[scene];
+        
+        // Main scene row
+        const sceneRow = document.createElement('tr');
+        sceneRow.className = 'scene-summary-row-group';
+        sceneRow.innerHTML = `
+            <td class="scene-summary-label-cell">
+                <div class="scene-summary-label scene-summary-label-group">Scene ${scene}</div>
+            </td>
+            <td class="scene-summary-shots">${shots.length}</td>
+            <td>${shots.map(shot => `${scene}.${shot.shot} ${shot.description}`).join(', ')}</td>
+            <td class="scene-summary-time">—</td>
+            <td class="scene-summary-duration">—</td>
+            <td class="scene-summary-location">${shots[0].location || '—'}</td>
+        `;
+        tbody.appendChild(sceneRow);
+        
+        // Individual shot rows
+        shots.forEach(shot => {
+            const shotRow = document.createElement('tr');
+            shotRow.className = 'scene-summary-row-part';
+            shotRow.innerHTML = `
+                <td class="scene-summary-label-cell">
+                    <div class="scene-summary-label scene-summary-label-part">${shot.shot || '—'}</div>
+                </td>
+                <td class="scene-summary-shots">1</td>
+                <td>${scene}.${shot.shot} ${shot.description}</td>
+                <td class="scene-summary-time">—</td>
+                <td class="scene-summary-duration">—</td>
+                <td class="scene-summary-location">${shot.location || '—'}</td>
+            `;
+            tbody.appendChild(shotRow);
+        });
+    });
+    
+    body.appendChild(table);
+}
+
+function renderDrehplan(snapshot) {
+    const container = document.getElementById('sceneSummary');
+    if (!container) return;
+    
+    const body = container.querySelector('.scene-summary-body');
+    if (!body) return;
+    
+    body.innerHTML = '';
+    body.classList.remove('empty');
+    
+    if (!snapshot.length) {
+        body.classList.add('empty');
+        body.textContent = 'Keine Szenen erfasst.';
+        return;
+    }
+    
+    // Sort by order (chronological)
+    const sortedShots = snapshot.slice().sort((a, b) => a.order - b.order);
+    
+    // Create table
+    const table = document.createElement('table');
+    table.className = 'scene-summary-table';
+    table.innerHTML = `
+        <thead>
+            <tr>
+                <th>Szene</th>
+                <th>Shots</th>
+                <th>Shot-Liste</th>
+                <th>Drehzeit</th>
+                <th>Gesamtdauer</th>
+                <th>Location</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    `;
+    
+    const tbody = table.querySelector('tbody');
+    
+    sortedShots.forEach(shot => {
+        const row = document.createElement('tr');
+        row.className = 'scene-summary-row';
+        row.innerHTML = `
+            <td class="scene-summary-label-cell">
+                <div class="scene-summary-label">${shot.scene || '—'}</div>
+            </td>
+            <td class="scene-summary-shots">1</td>
+            <td>${shot.scene}.${shot.shot} ${shot.description}</td>
+            <td class="scene-summary-time">—</td>
+            <td class="scene-summary-duration">—</td>
+            <td class="scene-summary-location">${shot.location || '—'}</td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    body.appendChild(table);
+}
+
+function renderLocations(snapshot) {
+    const container = document.getElementById('sceneSummary');
+    if (!container) return;
+    
+    const body = container.querySelector('.scene-summary-body');
+    if (!body) return;
+    
+    body.innerHTML = '';
+    body.classList.remove('empty');
+    
+    if (!snapshot.length) {
+        body.classList.add('empty');
+        body.textContent = 'Keine Szenen erfasst.';
+        return;
+    }
+    
+    // Group by location
+    const locationGroups = {};
+    snapshot.forEach(shot => {
+        const locationKey = shot.location || 'Ohne Location';
+        if (!locationGroups[locationKey]) {
+            locationGroups[locationKey] = [];
+        }
+        locationGroups[locationKey].push(shot);
+    });
+    
+    // Create table
+    const table = document.createElement('table');
+    table.className = 'scene-summary-table';
+    table.innerHTML = `
+        <thead>
+            <tr>
+                <th>Location</th>
+                <th>Shots</th>
+                <th>Shot-Liste</th>
+                <th>Drehzeit</th>
+                <th>Gesamtdauer</th>
+                <th>Scenes</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    `;
+    
+    const tbody = table.querySelector('tbody');
+    
+    Object.keys(locationGroups).sort().forEach(location => {
+        const shots = locationGroups[location];
+        
+        // Main location row
+        const locationRow = document.createElement('tr');
+        locationRow.className = 'scene-summary-row-group';
+        locationRow.innerHTML = `
+            <td class="scene-summary-label-cell">
+                <div class="scene-summary-label scene-summary-label-group">${location}</div>
+            </td>
+            <td class="scene-summary-shots">${shots.length}</td>
+            <td>${shots.map(shot => `${shot.scene}.${shot.shot} ${shot.description}`).join(' | ')}</td>
+            <td class="scene-summary-time">—</td>
+            <td class="scene-summary-duration">—</td>
+            <td class="scene-summary-location">${[...new Set(shots.map(s => s.scene))].join(', ')}</td>
+        `;
+        tbody.appendChild(locationRow);
+    });
+    
+    body.appendChild(table);
 }
 
 function updateSceneSummary(summaryData) {
@@ -4057,7 +4317,7 @@ function addPause() {
             case 'time':
                 return `<td data-col-key="time" class="special-time-cell ${colClass}"><span class="start-time-cell">--:--</span></td>`;
             case 'action':
-                return `<td data-col-key="action" class="action-cell ${colClass}"><button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button></td>`;
+                return `<td data-col-key="action" class="action-cell ${colClass}"><div class="action-buttons"><button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button></div></td>`;
             default:
                 return `<td data-col-key="${key}" class="${colClass}"></td>`;
         }
@@ -4093,7 +4353,7 @@ function addWrap() {
                 case 'time':
                     return `<td data-col-key="time" class="special-time-cell ${colClass}"><span class="start-time-cell">--:--</span></td>`;
                 case 'action':
-                    return `<td data-col-key="action" class="action-cell ${colClass}"><button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button></td>`;
+                    return `<td data-col-key="action" class="action-cell ${colClass}"><div class="action-buttons"><button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button></div></td>`;
                 default:
                     return `<td data-col-key="${key}" class="${colClass}"></td>`;
             }
@@ -4132,7 +4392,7 @@ function addStart(data = {}) {
             case 'time':
                 return `<td data-col-key="time" class="special-time-cell ${colClass}"><span class="start-time-cell">--:--</span></td>`;
             case 'action':
-                return `<td data-col-key="action" class="action-cell ${colClass}"><button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button></td>`;
+                return `<td data-col-key="action" class="action-cell ${colClass}"><div class="action-buttons"><button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button></div></td>`;
             default:
                 return `<td data-col-key="${key}" class="${colClass}"></td>`;
         }
@@ -4173,7 +4433,7 @@ function addUmbau(data = {}) {
             case 'time':
                 return `<td data-col-key="time" class="special-time-cell ${colClass}"><span class="start-time-cell">--:--</span></td>`;
             case 'action':
-                return `<td data-col-key="action" class="action-cell ${colClass}"><button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button></td>`;
+                return `<td data-col-key="action" class="action-cell ${colClass}"><div class="action-buttons"><button class="action-btn delete-btn" onclick="deleteRow(this)">Löschen</button></div></td>`;
             default:
                 return `<td data-col-key="${key}" class="${colClass}"></td>`;
         }
@@ -5110,7 +5370,14 @@ window.onload = function() {
     }
     updateSceneSummaryToggleLabel();
     // Initial summary build so all views (incl. Locations) have data immediately
-    calculateTime();
+    const snapshot = getCurrentSnapshot();
+    if (sceneSummaryMode === 0) {
+        renderScenes(snapshot);
+    } else if (sceneSummaryMode === 1) {
+        renderDrehplan(snapshot);
+    } else if (sceneSummaryMode === 2) {
+        renderLocations(snapshot);
+    }
     const imageOverlay = document.getElementById('imageOverlay');
     if (imageOverlay) {
         imageOverlay.addEventListener('click', (evt) => {

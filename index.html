@@ -1901,7 +1901,7 @@
         <section id="sceneSummary" class="scene-summary" aria-live="polite">
             <div class="scene-summary-header">
                 <h3>Szenen-Übersicht</h3>
-                <button type="button" id="sceneSummaryToggle" class="scene-summary-toggle" aria-pressed="false">Ansicht: Szenen</button>
+                <button type="button" id="sceneSummaryToggle" class="scene-summary-toggle" aria-pressed="false" onclick="toggleSceneSummaryMode()">Ansicht: Szenen</button>
             </div>
             <div class="scene-summary-body empty">Keine Szenen erfasst.</div>
         </section>
@@ -5029,6 +5029,8 @@ window.onload = function() {
         sceneSummaryToggle.addEventListener('click', toggleSceneSummaryMode);
     }
     updateSceneSummaryToggleLabel();
+    // Initial summary build so all views (incl. Locations) have data immediately
+    calculateTime();
     const imageOverlay = document.getElementById('imageOverlay');
     if (imageOverlay) {
         imageOverlay.addEventListener('click', (evt) => {

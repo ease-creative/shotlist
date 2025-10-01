@@ -3415,6 +3415,179 @@ function toggleSceneSummaryMode() {
 
 
 
+function updateSceneSummary(summaryData) {
+    const container = document.getElementById('sceneSummary');
+    if (!container) return;
+    const body = container.querySelector('.scene-summary-body');
+    if (!body) return;
+
+    updateSceneSummaryToggleLabel();
+
+    if (!summaryData || !summaryData.scenes || !summaryData.locations || !summaryData.specials) {
+        body.classList.add('empty');
+        body.textContent = 'Keine Szenen erfasst.';
+        return;
+    }
+
+    const scenes = Array.from(summaryData.scenes.aggregated.values());
+    const locations = Array.from(summaryData.locations.aggregated.values());
+    const specials = summaryData.specials || [];
+
+    // Sortiere Specials nach Zeit
+    const sortedSpecials = specials.slice().sort((a, b) => {
+        const getTime = (item) => {
+            if (item.specialType === 'start') return -Infinity;
+            if (item.specialType === 'wrap') return Infinity;
+            return item.start || 0;
+        };
+        return getTime(a) - getTime(b);
+    });
+
+    const entries = [];
+
+    // Specials hinzufügen
+    sortedSpecials.forEach(special => {
+        entries.push({
+            type: 'special',
+            specialType: special.specialType,
+            label: special.label || special.specialType,
+            duration: special.duration || 0,
+            start: special.start,
+            end: special.end
+        });
+    });
+
+    if (sceneSummaryMode === 'scene') {
+        // Szenen-Modus: Aggregiert nach Szenen
+        scenes.sort((a, b) => {
+            const numA = parseInt(a.scene) || 999;
+            const numB = parseInt(b.scene) || 999;
+            return numA - numB;
+        });
+
+        scenes.forEach(scene => {
+            if (!scene || !scene.shots || scene.shots.length === 0) return;
+            
+            const shotLabels = scene.shots.map(shot => 
+                buildShotLabel(shot.scene, shot.shot, shot.name)
+            );
+            
+            entries.push({
+                type: 'scene',
+                label: `Scene ${scene.scene}`,
+                shotCount: scene.shots.length,
+                shotList: shotLabels.join(', '),
+                timeRange: formatTimeRangeFromMinutes(scene.start, scene.end),
+                duration: formatDurationMinutes(scene.duration || 0),
+                location: Array.from(scene.locations || []).join(', ') || '—'
+            });
+        });
+
+    } else if (sceneSummaryMode === 'plan') {
+        // Plan-Modus: Chronologische Reihenfolge
+        const allItems = [...scenes, ...locations].sort((a, b) => (a.order || 0) - (b.order || 0));
+        
+        allItems.forEach(item => {
+            if (!item || !item.shots || item.shots.length === 0) return;
+            
+            const shotLabels = item.shots.map(shot => 
+                buildShotLabel(shot.scene, shot.shot, shot.name)
+            );
+            
+            entries.push({
+                type: 'scene',
+                label: `Scene ${item.scene}`,
+                shotCount: item.shots.length,
+                shotList: shotLabels.join(', '),
+                timeRange: formatTimeRangeFromMinutes(item.start, item.end),
+                duration: formatDurationMinutes(item.duration || 0),
+                location: Array.from(item.locations || []).join(', ') || '—'
+            });
+        });
+
+    } else if (sceneSummaryMode === 'location') {
+        // Location-Modus: Gruppiert nach Locations
+        locations.sort((a, b) => a.location.localeCompare(b.location));
+
+        locations.forEach(location => {
+            if (!location || !location.shots || location.shots.length === 0) return;
+            
+            const shotLabels = location.shots.map(shot => 
+                buildShotLabel(shot.scene, shot.shot, shot.name)
+            );
+            
+            entries.push({
+                type: 'location',
+                label: `Location ${location.location}`,
+                shotCount: location.shots.length,
+                shotList: joinWithSceneSeparators(shotLabels),
+                timeRange: formatTimeRangeFromMinutes(location.start, location.end),
+                duration: formatDurationMinutes(location.duration || 0),
+                scenes: Array.from(location.scenes || []).join(', ') || '—'
+            });
+        });
+    }
+
+    // Tabelle erstellen
+    const table = document.createElement('table');
+    table.className = 'scene-summary-table';
+    
+    const headers = sceneSummaryMode === 'location' 
+        ? ['Location', 'Shots', 'Shot-Liste', 'Drehzeit', 'Gesamtdauer', 'Szenen']
+        : ['Szene', 'Shots', 'Shot-Liste', 'Drehzeit', 'Gesamtdauer', 'Location'];
+    
+    table.innerHTML = `
+        <thead>
+            <tr>
+                ${headers.map(h => `<th>${h}</th>`).join('')}
+            </tr>
+        </thead>
+        <tbody></tbody>
+    `;
+    
+    const tbody = table.querySelector('tbody');
+
+    entries.forEach(entry => {
+        const row = document.createElement('tr');
+        
+        if (entry.type === 'special') {
+            row.classList.add(`scene-summary-row-${entry.specialType}`);
+            
+            const durationDisplay = entry.specialType === 'pause' 
+                ? `<em class="duration-negative">${formatNegativeDuration(entry.duration)}</em>`
+                : formatDurationMinutes(entry.duration);
+            
+            row.innerHTML = `
+                <td>${entry.label}</td>
+                <td>—</td>
+                <td>${entry.specialType === 'pause' ? 'Pause' : '—'}</td>
+                <td>${formatTimeRangeFromMinutes(entry.start, entry.end)}</td>
+                <td>${durationDisplay}</td>
+                <td>—</td>
+            `;
+        } else {
+            const locationColumn = sceneSummaryMode === 'location' 
+                ? entry.scenes || '—'
+                : entry.location || '—';
+            
+            row.innerHTML = `
+                <td>${entry.label}</td>
+                <td>${entry.shotCount}</td>
+                <td>${entry.shotList}</td>
+                <td>${entry.timeRange}</td>
+                <td>${entry.duration}</td>
+                <td>${locationColumn}</td>
+            `;
+        }
+        
+        tbody.appendChild(row);
+    });
+
+    body.classList.remove('empty');
+    body.innerHTML = '';
+    body.appendChild(table);
+}
+
 function updateShotCount(count) {
     const el = document.getElementById('shotCountDisplay');
     if (!el) return;
@@ -4095,6 +4268,7 @@ function calculateTime() {
         }
     };
     updateShotCount(shotCount);
+    lastSceneSummaryData = summaryPayload;
     updateSceneSummary(summaryPayload);
     document.getElementById('totalTimeDisplay').textContent = formatTotalDuration(total);
     updateWrapStatus(total);
@@ -4761,6 +4935,25 @@ function formatTimeRangeFromMinutes(start, end) {
     if (!startLabel && !endLabel) return '—';
     if (!endLabel) return startLabel;
     return `${startLabel} - ${endLabel}`;
+}
+
+function joinWithSceneSeparators(labels) {
+    // Erwartet Labels im Format "Scene.Shot Name"
+    if (!Array.isArray(labels) || !labels.length) return '—';
+    const parts = [];
+    let lastScene = null;
+    for (const label of labels) {
+        const sceneMatch = label.match(/^(\S+?)\./); // nimmt Teil VOR dem ersten Punkt
+        const scene = sceneMatch ? sceneMatch[1] : null;
+        if (lastScene !== null && scene && scene !== lastScene) {
+            parts.push(' | ');
+        } else if (parts.length) {
+            parts.push(', ');
+        }
+        parts.push(label);
+        if (scene) lastScene = scene;
+    }
+    return parts.join('');
 }
     </script>
     

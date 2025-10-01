@@ -4370,7 +4370,9 @@ function calculateTime() {
         let displayEndMinutes = null;
         const isShotRow = row.classList.contains('shot-row');
         if (isShotRow) {
+            if (row.dataset.parallel !== '1') {
             shotCount += 1;
+            }
             const sceneInput = row.querySelector('.scene-number input');
             sceneValueForRow = sceneInput ? sceneInput.value.trim() : '';
             if (sceneValueForRow) scenesSet.add(sceneValueForRow);

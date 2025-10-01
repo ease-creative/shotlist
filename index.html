@@ -1869,8 +1869,8 @@
             </table>
             <template id="shotRowTemplate">
                 <tr class="shot-row">
-                    <td data-col-key="scene" class="scene-number col-scene"><input type="text" onchange="saveState()"></td>
-                    <td data-col-key="shot" class="shot-letter col-shot"><input type="text" onchange="saveState()"></td>
+                    <td data-col-key="scene" class="scene-number col-scene"><input type="text" onchange="saveState()" oninput="calculateTime()"></td>
+                    <td data-col-key="shot" class="shot-letter col-shot"><input type="text" onchange="saveState()" oninput="calculateTime()"></td>
                     <td data-col-key="type" class="col-type">
                         <select class="shot-type-select" onchange="saveState()"></select>
                     </td>
@@ -1878,14 +1878,14 @@
                         <select class="movement-select" onchange="handleMovementChange(this)"></select>
                     </td>
                     <td data-col-key="gear" class="gear-cell col-gear"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)"></textarea></td>
-                    <td data-col-key="location" class="location-cell col-location"><textarea class="auto-grow" onchange="calculateTime();saveState();" oninput="autoGrow(this)"></textarea></td>
+                    <td data-col-key="location" class="location-cell col-location"><textarea class="auto-grow" onchange="calculateTime();saveState();" oninput="autoGrow(this);calculateTime()"></textarea></td>
                     <td data-col-key="extint" class="col-extint">
                         <select onchange="saveState()"></select>
                     </td>
                     <td data-col-key="sound" class="col-sound">
                         <select onchange="saveState()"></select>
                     </td>
-                    <td data-col-key="description" class="description-cell col-description"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)"></textarea></td>
+                    <td data-col-key="description" class="description-cell col-description"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this);calculateTime()"></textarea></td>
                     <td data-col-key="cast" class="cast-cell col-cast"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)"></textarea></td>
                     <td data-col-key="reference" class="reference-cell col-reference">
                         <div class="reference-upload">
@@ -4754,6 +4754,7 @@ function calculateTime() {
     updateWrapStatus(total);
     updateWrapNetto(total, totalPauseMinutes);
     refreshPreviewValues();
+    try { updateSceneSummary(); } catch(e) { console.warn('updateSceneSummary failed', e); }
 }
 
 function updateWrapStatus(totalMinutes) {
@@ -5277,7 +5278,7 @@ window.onload = function() {
     }
     updateSceneSummaryToggleLabel();
     // Initial summary build so all views (incl. Locations) have data immediately
-    renderSceneSummaryView(SCENE_SUMMARY_MODES[sceneSummaryMode]);
+    renderSceneSummaryView(sceneSummaryMode);
     const imageOverlay = document.getElementById('imageOverlay');
     if (imageOverlay) {
         imageOverlay.addEventListener('click', (evt) => {

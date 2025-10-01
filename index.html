@@ -4079,8 +4079,7 @@ function updateShotCount(count) {
     el.textContent = String(safe);
 }
 
-function updateUndoButtonVisibility(show) {shot count fix
-
+function updateUndoButtonVisibility(show) {
     const undoBtn = document.getElementById('undoResetButton');
     if (!undoBtn) return;
     undoBtn.style.display = show ? 'inline-flex' : 'none';

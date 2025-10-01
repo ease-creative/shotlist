@@ -1872,21 +1872,21 @@
                     <td data-col-key="scene" class="scene-number col-scene"><input type="text" onchange="saveState()" oninput="calculateTime()"></td>
                     <td data-col-key="shot" class="shot-letter col-shot"><input type="text" onchange="saveState()" oninput="calculateTime()"></td>
                     <td data-col-key="type" class="col-type">
-                        <select class="shot-type-select" onchange="saveState()"></select>
+                        <select class="shot-type-select" onchange="calculateTime();saveState()"></select>
                     </td>
                     <td data-col-key="movement" class="col-movement">
                         <select class="movement-select" onchange="handleMovementChange(this)"></select>
                     </td>
-                    <td data-col-key="gear" class="gear-cell col-gear"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)"></textarea></td>
+                    <td data-col-key="gear" class="gear-cell col-gear"><textarea class="auto-grow" onchange="calculateTime();saveState()" oninput="autoGrow(this);calculateTime()"></textarea></td>
                     <td data-col-key="location" class="location-cell col-location"><textarea class="auto-grow" onchange="calculateTime();saveState();" oninput="autoGrow(this);calculateTime()"></textarea></td>
                     <td data-col-key="extint" class="col-extint">
-                        <select onchange="saveState()"></select>
+                        <select onchange="calculateTime();saveState()"></select>
                     </td>
                     <td data-col-key="sound" class="col-sound">
-                        <select onchange="saveState()"></select>
+                        <select onchange="calculateTime();saveState()"></select>
                     </td>
                     <td data-col-key="description" class="description-cell col-description"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this);calculateTime()"></textarea></td>
-                    <td data-col-key="cast" class="cast-cell col-cast"><textarea class="auto-grow" onchange="saveState()" oninput="autoGrow(this)"></textarea></td>
+                    <td data-col-key="cast" class="cast-cell col-cast"><textarea class="auto-grow" onchange="calculateTime();saveState()" oninput="autoGrow(this);calculateTime()"></textarea></td>
                     <td data-col-key="reference" class="reference-cell col-reference">
                         <div class="reference-upload">
                             <input type="file" accept="image/*" style="display:none" onchange="handleImageUpload(this)">
@@ -4074,10 +4074,13 @@ function updateSceneSummary(summaryData) {
 
 function updateShotCount(count) {
     const el = document.getElementById('shotCountDisplay');
-    if (el) el.textContent = count;
+    if (!el) return;
+    const safe = Math.max(0, parseInt(count, 10) || 0);
+    el.textContent = String(safe);
 }
 
-function updateUndoButtonVisibility(show) {
+function updateUndoButtonVisibility(show) {shot count fix
+
     const undoBtn = document.getElementById('undoResetButton');
     if (!undoBtn) return;
     undoBtn.style.display = show ? 'inline-flex' : 'none';
@@ -4751,12 +4754,12 @@ function calculateTime() {
             netDuration: Math.max(0, total - totalPauseMinutes)
         }
     };
+    updateShotCount(shotCount);
     updateSceneSummary(summaryPayload);
     document.getElementById('totalTimeDisplay').textContent = formatTotalDuration(total);
     updateWrapStatus(total);
     updateWrapNetto(total, totalPauseMinutes);
     refreshPreviewValues();
-    try { updateSceneSummary(); } catch(e) { console.warn('updateSceneSummary failed', e); }
 }
 
 function updateWrapStatus(totalMinutes) {

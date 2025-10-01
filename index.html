@@ -3445,18 +3445,6 @@ function updateSceneSummary(summaryData) {
 
     const entries = [];
 
-    // Specials hinzufügen
-    sortedSpecials.forEach(special => {
-        entries.push({
-            type: 'special',
-            specialType: special.specialType,
-            label: special.label || special.specialType,
-            duration: special.duration || 0,
-            start: special.start,
-            end: special.end
-        });
-    });
-
     if (sceneSummaryMode === 'scene') {
         // Szenen-Modus: Aggregiert nach Szenen
         scenes.sort((a, b) => {
@@ -3484,12 +3472,39 @@ function updateSceneSummary(summaryData) {
         });
 
     } else if (sceneSummaryMode === 'plan') {
-        // Plan-Modus: Chronologische Reihenfolge
-        const allItems = [...scenes, ...locations].sort((a, b) => (a.order || 0) - (b.order || 0));
+        // Plan-Modus: Chronologische Reihenfolge mit Specials
+        const allItems = [];
         
+        // Alle Szenen und Locations sammeln
+        scenes.forEach(scene => {
+            if (scene && scene.shots && scene.shots.length > 0) {
+                allItems.push({...scene, type: 'scene'});
+            }
+        });
+        
+        locations.forEach(location => {
+            if (location && location.shots && location.shots.length > 0) {
+                allItems.push({...location, type: 'location'});
+            }
+        });
+        
+        // Nach Reihenfolge sortieren
+        allItems.sort((a, b) => (a.order || 0) - (b.order || 0));
+        
+        // Start-Specials zuerst
+        sortedSpecials.filter(s => s.specialType === 'start').forEach(special => {
+            entries.push({
+                type: 'special',
+                specialType: special.specialType,
+                label: 'Start – Briefing/Aufbau',
+                duration: special.duration || 0,
+                start: special.start,
+                end: special.end
+            });
+        });
+        
+        // Dann alle Szenen/Locations
         allItems.forEach(item => {
-            if (!item || !item.shots || item.shots.length === 0) return;
-            
             const shotLabels = item.shots.map(shot => 
                 buildShotLabel(shot.scene, shot.shot, shot.name)
             );
@@ -3502,6 +3517,30 @@ function updateSceneSummary(summaryData) {
                 timeRange: formatTimeRangeFromMinutes(item.start, item.end),
                 duration: formatDurationMinutes(item.duration || 0),
                 location: Array.from(item.locations || []).join(', ') || '—'
+            });
+        });
+        
+        // Pause-Specials
+        sortedSpecials.filter(s => s.specialType === 'pause').forEach(special => {
+            entries.push({
+                type: 'special',
+                specialType: special.specialType,
+                label: 'Pause',
+                duration: special.duration || 0,
+                start: special.start,
+                end: special.end
+            });
+        });
+        
+        // Wrap-Specials zuletzt
+        sortedSpecials.filter(s => s.specialType === 'wrap').forEach(special => {
+            entries.push({
+                type: 'special',
+                specialType: special.specialType,
+                label: 'Wrap',
+                duration: special.duration || 0,
+                start: special.start,
+                end: special.end
             });
         });
 
@@ -4895,13 +4934,23 @@ function computeSummaryMetrics(summaryData) {
     return totals;
 }
 
-function buildShotLabel(scene, shot) {
+function buildShotLabel(scene, shot, name) {
     const safeScene = (scene || '').trim();
     const safeShot = (shot || '').trim();
-    if (safeScene && safeShot) return `${safeScene}.${safeShot}`;
-    if (safeScene) return safeScene;
-    if (safeShot) return safeShot;
-    return '—';
+    const safeName = (name || '').trim();
+    
+    let base = '';
+    if (safeScene && safeShot) {
+        base = `${safeScene}.${safeShot}`;
+    } else if (safeScene) {
+        base = safeScene;
+    } else if (safeShot) {
+        base = safeShot;
+    } else {
+        return '—';
+    }
+    
+    return safeName ? `${base} ${safeName}` : base;
 }
 
 function formatDurationMinutes(minutes) {

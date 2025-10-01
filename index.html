@@ -3488,7 +3488,8 @@ function getSceneSummarySnapshot() {
                 duration: totalMinutes,
                 start: startMinutes,
                 end: endMinutes,
-                order: orderCounter
+                order: orderCounter,
+                label: buildShotLabel(displayScene, shotValue)
             });
 
             if (!locations.has(locationKey)) {
@@ -3521,7 +3522,9 @@ function getSceneSummarySnapshot() {
                 duration: totalMinutes,
                 start: startMinutes,
                 end: endMinutes,
-                order: orderCounter
+                order: orderCounter,
+                location: displayLocation,
+                label: buildShotLabel(displayScene, shotValue)
             });
 
             orderCounter += 1;
@@ -3908,113 +3911,76 @@ function updateSceneSummary(summaryData) {
     }
 
     const formatShotsList = (entry) => {
-        if (!entry || entry.type === 'special') return '—';
+        if (!entry) return '—';
+        if (entry.type === 'special') {
+            const metric = entry.metric || {};
+            if (metric.specialType === 'pause') {
+                return metric.label || 'Pause';
+            }
+            return metric.label || '—';
+        }
         const metric = entry.metric || {};
+
+        const formatShotArray = (shots, separator = ', ') => {
+            if (!Array.isArray(shots) || !shots.length) return '—';
+            return shots.map(shot => {
+                if (!shot) return '—';
+                if (shot.label) return shot.label;
+                return buildShotLabel(shot.scene, shot.shot);
+            }).join(separator);
+        };
         
         if (entry.type === 'group-header') {
             if (entry.groupType === 'scene') {
-                const shots = metric.shots || [];
-                if (!shots.length) return '—';
-                return shots.map(shot => {
-                    const scene = metric.scene || '';
-                    const shotName = shot.shot || '';
-                    const shotLabel = shotName ? `${scene}.${shotName}` : scene;
-                    return shotLabel.trim();
-                }).join(', ');
+                return formatShotArray(metric.shots, ', ');
             }
             if (entry.groupType === 'location') {
-                const scenes = formatSetValues(metric.scenes);
-                return scenes.length ? scenes.join(', ') : '—';
+                return formatShotArray(metric.shots, ' | ');
             }
         }
         
         if (entry.type === 'part') {
-                const shots = metric.shots || [];
-                if (!shots.length) return '—';
-            if (entry.groupType === 'location') {
-                return shots.map(shot => {
-                    const scene = shot.scene || '';
-                    const shotName = shot.shot || '';
-                    const shotLabel = shotName ? `${scene}.${shotName}` : scene;
-                    return shotLabel.trim();
-                }).join(' | ');
-            }
-            return shots.map(shot => {
-                const scene = metric.scene || '';
-                const shotName = shot.shot || '';
-                const shotLabel = shotName ? `${scene}.${shotName}` : scene;
-                return shotLabel.trim();
-            }).join(', ');
+            const separator = entry.groupType === 'location' ? ' | ' : ', ';
+            return formatShotArray(metric.shots, separator);
         }
 
         if (entry.type === 'data' && entry.groupType === 'scene') {
-                const shots = metric.shots || [];
-                if (!shots.length) return '—';
-                return shots.map(shot => {
-                    const scene = metric.scene || '';
-                    const shotName = shot.shot || '';
-                    const shotLabel = shotName ? `${scene}.${shotName}` : scene;
-                return shotLabel.trim();
-                }).join(', ');
-            }
+            return formatShotArray(metric.shots, ', ');
+        }
 
         if (entry.groupType === 'location') {
-            const shots = metric.shots || [];
-            if (!shots.length) return '—';
-            return shots.map(shot => {
-                const scene = shot.scene || '';
-                const shotName = shot.shot || '';
-                const shotLabel = shotName ? `${scene}.${shotName}` : scene;
-                return shotLabel.trim();
-            }).join(', ');
+            return formatShotArray(metric.shots, ' | ');
         }
         
         return '—';
     };
 
     const formatTimeRange = (entry) => {
-        if (!entry || entry.type === 'special') return '—';
+        if (!entry) return '—';
+        if (entry.type === 'special') {
         const metric = entry.metric || {};
-        
-        if (entry.type === 'group-header') {
-            const start = metric.start;
-            const end = metric.end;
-            if (typeof start === 'number' && typeof end === 'number') {
-                const startTime = formatMinutesToHHMM(start);
-                const endTime = formatMinutesToHHMM(end);
-                return `${startTime} - ${endTime}`;
-            }
-            return '—';
+            return formatTimeRangeFromMinutes(metric.start, metric.end);
         }
-        
-        if (entry.type === 'part') {
-            const start = metric.start;
-            const end = metric.end;
-            if (typeof start === 'number' && typeof end === 'number') {
-                const startTime = formatMinutesToHHMM(start);
-                const endTime = formatMinutesToHHMM(end);
-                return `${startTime} - ${endTime}`;
-            }
-            return '—';
+        const metric = entry.metric || {};
+        if (entry.type === 'group-header' || entry.type === 'part') {
+            return formatTimeRangeFromMinutes(metric.start, metric.end);
         }
-        
         return '—';
     };
 
     const formatDurationValue = (entry) => {
-        if (!entry || entry.type === 'special') return '—';
+        if (!entry) return '—';
+        if (entry.type === 'special') {
         const metric = entry.metric || {};
-        
-        if (entry.type === 'group-header') {
-            const duration = metric.duration || 0;
-            return duration > 0 ? `${duration}m` : '0m';
+            if (entry.metric.specialType === 'pause') {
+                return `<span class="time-display duration-negative">${formatNegativeDuration(metric.duration || 0)}</span>`;
+            }
+            return metric.duration ? formatDurationMinutes(metric.duration) : '—';
         }
-        
-        if (entry.type === 'part') {
-            const duration = metric.duration || 0;
-            return duration > 0 ? `${duration}m` : '0m';
+        const metric = entry.metric || {};
+        if (entry.type === 'group-header' || entry.type === 'part') {
+            return formatDurationMinutes(metric.duration || 0);
         }
-        
         return '—';
     };
 
@@ -4756,12 +4722,34 @@ function calculateTime() {
     locationSegments.forEach(segment => {
         segment.totalParts = locationPartCounters.get(segment.locationKey) || 1;
     });
-    updateSceneSummary({
-        scenes: { aggregated: sceneMetrics, segments: sceneSegments },
-        locations: { aggregated: locationMetrics, segments: locationSegments },
-        specials: specialEntries
-    });
-    updateShotCount(shotCount);
+    const sceneAggregatedArray = Array.from(sceneMetrics.values()).map(metric => Object.assign({}, metric, {
+        locations: Array.from(metric.locations || []),
+        shots: metric.shots.slice()
+    }));
+    sceneAggregatedArray.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    const locationAggregatedArray = Array.from(locationMetrics.values()).map(metric => Object.assign({}, metric, {
+        scenes: Array.from(metric.scenes || []),
+        locations: Array.from(metric.locations || []),
+        shots: metric.shots.slice(),
+        shotsByScene: metric.shotsByScene instanceof Map ? new Map(metric.shotsByScene) : new Map()
+    }));
+    locationAggregatedArray.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    const specialsWithMeta = specialEntries.map(entry => Object.assign({}, entry));
+    const summaryPayload = {
+        scenes: { aggregated: new Map(sceneAggregatedArray.map(metric => [metric.key, metric])), segments: sceneSegments },
+        locations: { aggregated: new Map(locationAggregatedArray.map(metric => [metric.key, metric])), segments: locationSegments },
+        specials: specialsWithMeta,
+        mode: sceneSummaryMode,
+        totals: {
+            shots: shotCount,
+            duration: total,
+            pauseDuration: totalPauseMinutes,
+            netDuration: Math.max(0, total - totalPauseMinutes)
+        }
+    };
+    updateSceneSummary(summaryPayload);
     document.getElementById('totalTimeDisplay').textContent = formatTotalDuration(total);
     updateWrapStatus(total);
     updateWrapNetto(total, totalPauseMinutes);
@@ -5341,6 +5329,87 @@ window.onload = function() {
     document.querySelectorAll('#shotlistBody tr').forEach(registerRow);
     document.addEventListener('click', handleDocumentClick);
 };
+
+function computeSummaryMetrics(summaryData) {
+    const scenes = summaryData && summaryData.scenes && summaryData.scenes.aggregated
+        ? Array.from(summaryData.scenes.aggregated.values())
+        : [];
+    const locations = summaryData && summaryData.locations && summaryData.locations.aggregated
+        ? Array.from(summaryData.locations.aggregated.values())
+        : [];
+    const specials = Array.isArray(summaryData && summaryData.specials) ? summaryData.specials.slice() : [];
+
+    const totals = {
+        shots: 0,
+        duration: 0,
+        netDuration: 0,
+        scenes: new Set(),
+        locations: new Set(),
+        pauseDuration: 0
+    };
+
+    scenes.forEach(scene => {
+        totals.shots += Number(scene.count || 0);
+        totals.duration += Number(scene.duration || 0);
+        if (scene.scene) totals.scenes.add(scene.scene);
+        if (scene.locations instanceof Set) {
+            scene.locations.forEach(loc => loc && totals.locations.add(loc));
+        }
+    });
+
+    specials.forEach(entry => {
+        if (!entry || typeof entry.duration !== 'number') return;
+        if (entry.specialType === 'pause') {
+            totals.pauseDuration += Number(entry.duration);
+        }
+    });
+
+    totals.netDuration = Math.max(totals.duration - totals.pauseDuration, 0);
+
+    return totals;
+}
+
+function buildShotLabel(scene, shot) {
+    const safeScene = (scene || '').trim();
+    const safeShot = (shot || '').trim();
+    if (safeScene && safeShot) return `${safeScene}.${safeShot}`;
+    if (safeScene) return safeScene;
+    if (safeShot) return safeShot;
+    return '—';
+}
+
+function formatDurationMinutes(minutes) {
+    const value = Number.isFinite(minutes) ? Math.max(0, minutes) : 0;
+    if (value <= 0) return '0m';
+    const hours = Math.floor(value / 60);
+    const minutesPart = value % 60;
+    if (hours > 0) {
+        if (minutesPart === 0) {
+            return `${hours}h`;
+        }
+        return `${hours}h ${minutesPart}m`;
+    }
+    return `${minutesPart}m`;
+}
+
+function formatNegativeDuration(minutes) {
+    const value = Number.isFinite(minutes) ? Math.abs(minutes) : 0;
+    if (value <= 0) return '0m';
+    return `-${value}m`;
+}
+
+function formatTimeRangeFromMinutes(start, end) {
+    if (typeof start !== 'number' || Number.isNaN(start)) return '—';
+    if (typeof end !== 'number' || Number.isNaN(end)) {
+        const startLabel = formatMinutesToHHMM(start);
+        return startLabel ? `${startLabel}` : '—';
+    }
+    const startLabel = formatMinutesToHHMM(start);
+    const endLabel = formatMinutesToHHMM(end);
+    if (!startLabel && !endLabel) return '—';
+    if (!endLabel) return startLabel;
+    return `${startLabel} - ${endLabel}`;
+}
     </script>
     
     <style media="print">

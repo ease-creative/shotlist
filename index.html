@@ -2608,7 +2608,7 @@ let suppressActiveVersionUpdate = false;
 let selectedRows = new Set();
 let lastSelectedAnchor = null;
 let draggingRows = [];
-let sceneSummaryMode = 0; // 0 = Szenen, 1 = Drehplan, 2 = Locations
+let sceneSummaryMode = 'scene'; // 'scene' | 'plan' | 'location'
 let lastSceneSummaryData = {
     scenes: { aggregated: new Map(), segments: [] },
     locations: { aggregated: new Map(), segments: [] },
@@ -3372,6 +3372,7 @@ function triggerPrint() {
 function updateSceneSummaryToggleLabel() {
     const toggle = document.getElementById('sceneSummaryToggle');
     if (!toggle) return;
+    const currentIndex = Math.max(0, SCENE_SUMMARY_MODES.indexOf(sceneSummaryMode));
     const copy = [
         {
             text: 'Ansicht: Szenen',
@@ -3386,28 +3387,29 @@ function updateSceneSummaryToggleLabel() {
             description: 'Locations in Drehplan-Reihenfolge mit Teilen.'
         }
     ];
-    const current = copy[sceneSummaryMode] || copy[0];
-    const next = copy[(sceneSummaryMode + 1) % copy.length];
+    const current = copy[currentIndex] || copy[0];
+    const next = copy[(currentIndex + 1) % copy.length];
     toggle.textContent = current.text;
-    toggle.dataset.mode = sceneSummaryMode;
+    toggle.dataset.mode = SCENE_SUMMARY_MODES[currentIndex];
     toggle.setAttribute('aria-label', `${current.description} Nächste Ansicht: ${next.text}.`);
     toggle.setAttribute('title', `${current.description} Klick zum Wechsel auf ${next.text}.`);
-    const pressedState = sceneSummaryMode === 0 ? 'false' : (sceneSummaryMode === 1 ? 'mixed' : 'true');
+    const pressedState = currentIndex === 0 ? 'false' : (currentIndex === 1 ? 'mixed' : 'true');
     toggle.setAttribute('aria-pressed', pressedState);
 }
 
 function renderSceneSummaryView(modeKey) {
-    const index = SCENE_SUMMARY_MODES.indexOf(modeKey);
-    if (index !== -1 && sceneSummaryMode !== index) {
-        sceneSummaryMode = index;
+    const resolvedMode = SCENE_SUMMARY_MODES.includes(modeKey) ? modeKey : SCENE_SUMMARY_MODES[0];
+    sceneSummaryMode = resolvedMode;
+    if (!lastSceneSummaryData || typeof lastSceneSummaryData !== 'object') {
+        calculateTime();
+    } else {
+        updateSceneSummary(lastSceneSummaryData);
     }
-    const summarySnapshot = getSceneSummarySnapshot();
-    updateSceneSummary(summarySnapshot);
 }
 
 function toggleSceneSummaryMode() {
-    const nextIndex = (sceneSummaryMode + 1) % SCENE_SUMMARY_MODES.length;
-    sceneSummaryMode = nextIndex;
+    const currentIndex = Math.max(0, SCENE_SUMMARY_MODES.indexOf(sceneSummaryMode));
+    const nextIndex = (currentIndex + 1) % SCENE_SUMMARY_MODES.length;
     renderSceneSummaryView(SCENE_SUMMARY_MODES[nextIndex]);
 }
 
@@ -3415,8 +3417,8 @@ function getSceneSummarySnapshot() {
     const tbody = document.getElementById('shotlistBody');
     if (!tbody) {
         return {
-            scenes: new Map(),
-            locations: new Map(),
+            scenes: [],
+            locations: [],
             specials: []
         };
     }
@@ -3432,10 +3434,19 @@ function getSceneSummarySnapshot() {
             const sceneField = row.querySelector('.scene-number input');
             const shotField = row.querySelector('.shot-letter input');
             const locationField = row.querySelector('[data-col-key="location"] textarea');
+            const setupField = row.querySelector('[data-col-key="setup"] input');
+            const shootField = row.querySelector('[data-col-key="shoot"] input');
+            const startAttr = row.dataset.displayStart;
+            const endAttr = row.dataset.displayEnd;
 
             const sceneValue = sceneField ? sceneField.value.trim() : '';
             const shotValue = shotField ? shotField.value.trim() : '';
             const locationValue = locationField ? locationField.value.trim() : '';
+            const setupMinutes = parseInt(setupField ? setupField.value : 0, 10) || 0;
+            const shootMinutes = parseInt(shootField ? shootField.value : 0, 10) || 0;
+            const totalMinutes = setupMinutes + shootMinutes;
+            const startMinutes = startAttr !== undefined ? parseInt(startAttr, 10) : null;
+            const endMinutes = endAttr !== undefined ? parseInt(endAttr, 10) : null;
 
             if (!sceneValue && !shotValue) {
         return;
@@ -3453,17 +3464,30 @@ function getSceneSummarySnapshot() {
                     shots: [],
                     count: 0,
                     order: orderCounter,
+                    duration: 0,
+                    start: null,
+                    end: null,
                     locations: new Set()
                 });
             }
             const sceneMetric = scenes.get(sceneKey);
             sceneMetric.count += 1;
             sceneMetric.order = Math.min(sceneMetric.order, orderCounter);
+            sceneMetric.duration += totalMinutes;
+            if (startMinutes != null) {
+                sceneMetric.start = sceneMetric.start == null ? startMinutes : Math.min(sceneMetric.start, startMinutes);
+            }
+            if (endMinutes != null) {
+                sceneMetric.end = sceneMetric.end == null ? endMinutes : Math.max(sceneMetric.end, endMinutes);
+            }
             sceneMetric.locations.add(displayLocation);
             sceneMetric.shots.push({
                 scene: displayScene,
                 shot: shotValue,
                 location: displayLocation,
+                duration: totalMinutes,
+                start: startMinutes,
+                end: endMinutes,
                 order: orderCounter
             });
 
@@ -3473,7 +3497,10 @@ function getSceneSummarySnapshot() {
                     location: displayLocation,
                     shots: [],
                     scenes: new Set(),
-                    order: orderCounter
+                    order: orderCounter,
+                    duration: 0,
+                    start: null,
+                    end: null
                 });
             }
             const locationMetric = locations.get(locationKey);
@@ -3481,9 +3508,19 @@ function getSceneSummarySnapshot() {
             if (sceneValue) {
                 locationMetric.scenes.add(displayScene);
             }
+            locationMetric.duration += totalMinutes;
+            if (startMinutes != null) {
+                locationMetric.start = locationMetric.start == null ? startMinutes : Math.min(locationMetric.start, startMinutes);
+            }
+            if (endMinutes != null) {
+                locationMetric.end = locationMetric.end == null ? endMinutes : Math.max(locationMetric.end, endMinutes);
+            }
             locationMetric.shots.push({
                 scene: displayScene,
                 shot: shotValue,
+                duration: totalMinutes,
+                start: startMinutes,
+                end: endMinutes,
                 order: orderCounter
             });
 
@@ -3492,24 +3529,37 @@ function getSceneSummarySnapshot() {
             specials.push({
                 specialType: 'start',
                 label: 'Start',
-                order: orderCounter
+                order: orderCounter,
+                duration: parseInt(row.querySelector('.start-duration-input')?.value || '0', 10) || 0,
+                start: row.dataset.displayStart ? parseInt(row.dataset.displayStart, 10) : null,
+                end: row.dataset.displayEnd ? parseInt(row.dataset.displayEnd, 10) : null
             });
         } else if (row.classList.contains('pause-row')) {
             specials.push({
                 specialType: 'pause',
                 label: 'Pause',
-                order: orderCounter
+                order: orderCounter,
+                duration: parseInt(row.querySelector('.pause-duration-input')?.value || '0', 10) || 0,
+                start: row.dataset.displayStart ? parseInt(row.dataset.displayStart, 10) : null,
+                end: row.dataset.displayEnd ? parseInt(row.dataset.displayEnd, 10) : null
             });
         } else if (row.classList.contains('wrap-row')) {
             specials.push({
                 specialType: 'wrap',
                 label: 'Wrap',
-                order: orderCounter
+                order: orderCounter,
+                duration: 0,
+                start: row.dataset.displayStart ? parseInt(row.dataset.displayStart, 10) : null,
+                end: row.dataset.displayEnd ? parseInt(row.dataset.displayEnd, 10) : null
             });
         }
     });
 
-    return { scenes, locations, specials };
+    return {
+        scenes: Array.from(scenes.values()),
+        locations: Array.from(locations.values()),
+        specials
+    };
 }
 
 function updateSceneSummary(summaryData) {

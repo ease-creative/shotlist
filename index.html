@@ -4973,20 +4973,16 @@ function computeSummaryMetrics(summaryData) {
 function buildShotLabel(scene, shot, name) {
     const safeScene = (scene || '').trim();
     const safeShot = (shot || '').trim();
-    const safeName = (name || '').trim();
     
-    let base = '';
     if (safeScene && safeShot) {
-        base = `${safeScene}.${safeShot}`;
+        return `${safeScene}.${safeShot}`;
     } else if (safeScene) {
-        base = safeScene;
+        return safeScene;
     } else if (safeShot) {
-        base = safeShot;
+        return safeShot;
     } else {
         return '—';
     }
-    
-    return safeName ? `${base} ${safeName}` : base;
 }
 
 function formatDurationMinutes(minutes) {

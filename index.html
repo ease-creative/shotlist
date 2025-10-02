@@ -857,7 +857,7 @@
             display: none !important;
         }
 
-        body.preview-mode button:not(#previewToggleBtn) {
+        body.preview-mode button:not(#previewToggleBtn):not(#sceneSummaryToggle) {
             display: none !important;
         }
 
@@ -875,7 +875,6 @@
         }
 
         body.preview-mode .controls,
-        body.preview-mode .export-section,
         body.preview-mode .action-controls {
             display: none !important;
         }
@@ -1730,8 +1729,8 @@
         <div class="header">
             <div class="title-section">
                 <h1>SHOTLIST</h1>
-                <button type="button" id="previewToggleBtn" class="preview-toggle-btn" onclick="togglePreviewMode()" aria-pressed="false" title="Preview-Modus umschalten">Preview</button>
                 <input type="text" id="clientName" placeholder="Client Name" class="client-input">
+                <button type="button" id="previewToggleBtn" class="preview-toggle-btn" onclick="togglePreviewMode()" aria-pressed="false" title="Preview-Modus umschalten">Preview</button>
             </div>
             <div class="time-tracking">
                 <div class="time-info">

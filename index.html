@@ -3606,9 +3606,16 @@ function updateSceneSummary(summaryData) {
         if (entry.type === 'special') {
             row.classList.add(`scene-summary-row-${entry.specialType}`);
             
-            const durationDisplay = entry.specialType === 'pause' 
-                ? `<em class="duration-negative">${formatNegativeDuration(entry.duration)}</em>`
-                : formatDurationMinutes(entry.duration);
+            let durationDisplay;
+            if (entry.specialType === 'pause') {
+                durationDisplay = `<em class="duration-negative">${formatNegativeDuration(entry.duration)}</em>`;
+            } else if (entry.specialType === 'wrap') {
+                // Für Wrap: Gesamtdauer aller Szenen minus Pausen
+                const totalDuration = summaryData.totals ? summaryData.totals.netDuration : 0;
+                durationDisplay = formatDurationMinutes(totalDuration);
+            } else {
+                durationDisplay = formatDurationMinutes(entry.duration);
+            }
             
             row.innerHTML = `
                 <td>${entry.label}</td>

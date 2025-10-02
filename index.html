@@ -1869,6 +1869,7 @@
             </div>
             <div class="project-controls">
                 <button class="btn btn-project" onclick="saveProject()">Projekt speichern</button>
+                <button class="btn btn-project-secondary" onclick="ladenDaten()" title="Vom Server laden">Vom Server laden</button>
                 <select id="projectSelect" onchange="loadSelectedProject()" class="project-select" data-preview-ignore="1">
                     <option value="">Projekt laden...</option>
                 </select>
@@ -2465,6 +2466,160 @@ function setProjects(projects) {
     localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(projects));
 }
 
+function cssEscapeValue(value) {
+    if (window.CSS && typeof window.CSS.escape === 'function') {
+        return window.CSS.escape(value);
+    }
+    return String(value).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+}
+
+function collectFormFields() {
+    const fields = {};
+    const elements = document.querySelectorAll('input, textarea, select');
+    elements.forEach(el => {
+        if (!el) return;
+        if (el.dataset && (el.dataset.previewIgnore === '1' || el.dataset.serverIgnore === '1')) return;
+        const identifier = el.id || el.name || el.getAttribute('data-field-key');
+        if (!identifier) return;
+        if (el.type === 'file') {
+            fields[identifier] = null;
+            return;
+        }
+        if (el.type === 'checkbox') {
+            fields[identifier] = el.checked;
+            return;
+        }
+        if (el.type === 'radio') {
+            if (el.checked) {
+                fields[identifier] = el.value;
+            } else if (!(identifier in fields)) {
+                fields[identifier] = null;
+            }
+            return;
+        }
+        fields[identifier] = el.value;
+    });
+    return fields;
+}
+
+function applyFormFields(values) {
+    if (!values || typeof values !== 'object') return;
+    Object.entries(values).forEach(([key, value]) => {
+        if (!key) return;
+        let el = document.getElementById(key);
+        if (!el) {
+            try {
+                el = document.querySelector(`[name="${cssEscapeValue(key)}"]`);
+            } catch (err) {
+                el = null;
+            }
+        }
+        if (!el) {
+            try {
+                el = document.querySelector(`[data-field-key="${cssEscapeValue(key)}"]`);
+            } catch (err) {
+                el = null;
+            }
+        }
+        if (!el) return;
+        if (el.dataset && (el.dataset.previewIgnore === '1' || el.dataset.serverIgnore === '1')) return;
+        if (el.type === 'checkbox') {
+            el.checked = !!value;
+            el.dispatchEvent(new Event('change'));
+            return;
+        }
+        if (el.type === 'radio') {
+            const radios = document.querySelectorAll(`[name="${cssEscapeValue(key)}"]`);
+            radios.forEach(radio => {
+                radio.checked = radio.value === value;
+                radio.dispatchEvent(new Event('change'));
+            });
+            return;
+        }
+        el.value = value == null ? '' : value;
+        el.dispatchEvent(new Event('input'));
+        el.dispatchEvent(new Event('change'));
+    });
+}
+
+async function speichernDaten(options = {}) {
+    const { projectName = null, silent = false } = options || {};
+    const payload = {
+        snapshot: captureSnapshot(),
+        formFields: collectFormFields(),
+        projectName: projectName || getActiveProject() || '',
+        savedAt: new Date().toISOString()
+    };
+    try {
+        const response = await fetch('save.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        let result = null;
+        try {
+            result = await response.json();
+        } catch (err) {
+            result = null;
+        }
+        if (!silent) {
+            showNotification('Gespeichert ✓');
+        }
+        return result;
+    } catch (err) {
+        console.error('Fehler beim Speichern der Daten:', err);
+        if (!silent) {
+            showNotification('Speichern fehlgeschlagen', true);
+        }
+        throw err;
+    }
+}
+
+async function ladenDaten(options = {}) {
+    const { silent = false } = options || {};
+    try {
+        const response = await fetch('save.php', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        if (!response.ok) {
+            if (response.status === 404 && silent) {
+                return null;
+            }
+            throw new Error(`HTTP ${response.status}`);
+        }
+        let data = null;
+        try {
+            data = await response.json();
+        } catch (err) {
+            data = null;
+        }
+        if (data && data.snapshot) {
+            loadSnapshot(data.snapshot);
+        }
+        if (data && data.formFields) {
+            applyFormFields(data.formFields);
+        }
+        if (!silent) {
+            showNotification('Daten geladen');
+        }
+        return data;
+    } catch (err) {
+        console.error('Fehler beim Laden der Daten:', err);
+        if (!silent) {
+            showNotification('Laden fehlgeschlagen', true);
+        }
+        return null;
+    }
+}
+
 function getActiveProject() {
     return localStorage.getItem(ACTIVE_PROJECT_KEY) || '';
 }
@@ -2496,7 +2651,7 @@ function updateProjectSelect() {
     }
 }
 
-function saveProject() {
+async function saveProject() {
     const rawName = prompt("Projektname eingeben:");
     const name = rawName ? rawName.trim() : '';
     if (!name) return;
@@ -2513,7 +2668,17 @@ function saveProject() {
     setActiveProject(name);
     saveState();
     updateProjectSelect();
-    showNotification('Projekt lokal gespeichert!');
+    let serverError = null;
+    try {
+        await speichernDaten({ projectName: name, silent: true });
+    } catch (err) {
+        serverError = err;
+    }
+    if (serverError) {
+        showNotification('Lokal gespeichert – Server fehlgeschlagen', true);
+    } else {
+        showNotification('Projekt gespeichert! ✓');
+    }
 }
 
 function loadSelectedProject() {
@@ -5020,6 +5185,9 @@ window.onload = function() {
     document.querySelectorAll('textarea.auto-grow').forEach(autoGrow);
     document.querySelectorAll('#shotlistBody tr').forEach(registerRow);
     document.addEventListener('click', handleDocumentClick);
+    Promise.resolve().then(() => ladenDaten({ silent: true })).catch(err => {
+        console.debug('Serverdaten konnten beim Start nicht geladen werden:', err);
+    });
 };
 
 function computeSummaryMetrics(summaryData) {

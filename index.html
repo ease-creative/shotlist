@@ -3619,11 +3619,11 @@ function updateSceneSummary(summaryData) {
             
             row.innerHTML = `
                 <td>${entry.label}</td>
-                <td>—</td>
-                <td>${entry.specialType === 'pause' ? 'Pause' : '—'}</td>
+                <td></td>
+                <td>${entry.specialType === 'pause' ? 'Pause' : ''}</td>
                 <td>${formatTimeRangeFromMinutes(entry.start, entry.end)}</td>
                 <td>${durationDisplay}</td>
-                <td>—</td>
+                <td></td>
             `;
         } else {
             const locationColumn = sceneSummaryMode === 'location' 

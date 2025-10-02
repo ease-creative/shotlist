@@ -1987,7 +1987,7 @@
             <form id="versionForm">
                 <h3 id="versionModalTitle">Version speichern</h3>
                 <p class="modal-description">Gib einen eindeutigen Namen für die aktuelle Shotlist-Version ein.</p>
-                <input type="text" id="versionNameInput" class="version-input" placeholder="z.B. Regie-Freigabe">
+                <input type="text" id="versionNameInput" class="version-input" placeholder="z.B. Regie-Freigabe" data-server-ignore="1">
                 <div class="modal-buttons">
                     <button type="button" class="modal-btn secondary" id="versionCancelBtn">Abbrechen</button>
                     <button type="submit" class="modal-btn primary">Speichern</button>
@@ -2018,11 +2018,189 @@
     <script>
 
 // Shotlist Funktionen
-const VERSION_STORAGE_KEY = 'shotlist-versions';
-const CURRENT_STATE_KEY = 'shotlist-current';
-const ACTIVE_VERSION_KEY = 'shotlist-active-version';
-const PROJECT_STORAGE_KEY = 'shotlist-projects';
-const ACTIVE_PROJECT_KEY = 'shotlist-active-project';
+function createEmptyAppState() {
+    return {
+        projects: [],
+        currentProjectId: '',
+        currentVersionId: '',
+        draft: {
+            snapshot: null,
+            formFields: {}
+        },
+        lastSavedAt: null
+    };
+}
+
+function cloneAppState(value) {
+    if (value == null) return createEmptyAppState();
+    try {
+        return JSON.parse(JSON.stringify(value));
+    } catch (err) {
+        console.error('AppState konnte nicht geklont werden, verwende Default.', err);
+        return createEmptyAppState();
+    }
+}
+
+let appState = createEmptyAppState();
+
+function generateId(prefix = 'id') {
+    return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function ensureAppState(state) {
+    const base = createEmptyAppState();
+    if (!state || typeof state !== 'object') return base;
+    base.projects = Array.isArray(state.projects) ? state.projects.map(project => ensureProjectShape(project)) : [];
+    base.currentProjectId = typeof state.currentProjectId === 'string' ? state.currentProjectId : '';
+    base.currentVersionId = typeof state.currentVersionId === 'string' ? state.currentVersionId : '';
+    base.draft = ensureDraftShape(state.draft);
+    base.lastSavedAt = typeof state.lastSavedAt === 'string' ? state.lastSavedAt : null;
+    return base;
+}
+
+function ensureDraftShape(draft) {
+    const normalized = { snapshot: null, formFields: {} };
+    if (!draft || typeof draft !== 'object') return normalized;
+    if (typeof draft.snapshot === 'string') {
+        try {
+            normalized.snapshot = JSON.parse(draft.snapshot);
+        } catch (err) {
+            console.error('Draft-Snapshot konnte nicht geparst werden.', err);
+            normalized.snapshot = null;
+        }
+    } else {
+        normalized.snapshot = draft.snapshot || null;
+    }
+    normalized.formFields = draft.formFields && typeof draft.formFields === 'object' ? {...draft.formFields} : {};
+    return normalized;
+}
+
+function ensureProjectShape(project) {
+    const normalized = {
+        id: generateId('project'),
+        name: '',
+        snapshot: null,
+        versions: [],
+        activeVersionId: '',
+        formFields: {},
+        updated: null
+    };
+    if (!project || typeof project !== 'object') return normalized;
+    normalized.id = typeof project.id === 'string' && project.id.trim() ? project.id : normalized.id;
+    normalized.name = typeof project.name === 'string' ? project.name.trim() : '';
+    if (typeof project.snapshot === 'string') {
+        try {
+            normalized.snapshot = JSON.parse(project.snapshot);
+        } catch (err) {
+            console.error('Projekt-Snapshot konnte nicht geparst werden.', err);
+            normalized.snapshot = null;
+        }
+    } else {
+        normalized.snapshot = project.snapshot || null;
+    }
+    if (Array.isArray(project.versions)) {
+        normalized.versions = project.versions.map(ensureVersionShape);
+    }
+    normalized.activeVersionId = typeof project.activeVersionId === 'string' ? project.activeVersionId : '';
+    normalized.formFields = project.formFields && typeof project.formFields === 'object' ? {...project.formFields} : {};
+    normalized.updated = typeof project.updated === 'string' ? project.updated : null;
+    return normalized;
+}
+
+function ensureVersionShape(version) {
+    const normalized = {
+        id: generateId('version'),
+        name: '',
+        date: null,
+        snapshot: null
+    };
+    if (!version || typeof version !== 'object') return normalized;
+    normalized.id = typeof version.id === 'string' && version.id.trim() ? version.id : normalized.id;
+    normalized.name = typeof version.name === 'string' ? version.name.trim() : '';
+    normalized.date = typeof version.date === 'string' ? version.date : null;
+    if (typeof version.snapshot === 'string') {
+        try {
+            normalized.snapshot = JSON.parse(version.snapshot);
+        } catch (err) {
+            console.error('Version-Snapshot konnte nicht geparst werden.', err);
+            normalized.snapshot = null;
+        }
+    } else {
+        normalized.snapshot = version.snapshot || version.state || null;
+    }
+    return normalized;
+}
+
+function setAppState(nextState) {
+    appState = ensureAppState(nextState);
+}
+
+function getCurrentProject() {
+    if (!appState || !Array.isArray(appState.projects)) return null;
+    const id = appState.currentProjectId;
+    if (!id) return null;
+    return appState.projects.find(p => p && p.id === id) || null;
+}
+
+function setCurrentProjectId(id) {
+    appState.currentProjectId = typeof id === 'string' ? id : '';
+}
+
+function setCurrentVersionId(id) {
+    appState.currentVersionId = typeof id === 'string' ? id : '';
+    const project = getCurrentProject();
+    if (project) {
+        project.activeVersionId = appState.currentVersionId;
+    }
+}
+
+function findProjectById(id) {
+    if (!id || !appState.projects) return null;
+    return appState.projects.find(project => project && project.id === id) || null;
+}
+
+function findProjectByName(name) {
+    if (typeof name !== 'string' || !name.trim()) return null;
+    const target = name.trim().toLowerCase();
+    return appState.projects.find(project => project && typeof project.name === 'string' && project.name.trim().toLowerCase() === target) || null;
+}
+
+function ensureProjectByName(name) {
+    if (typeof name !== 'string' || !name.trim()) return null;
+    let project = findProjectByName(name);
+    if (project) return project;
+    project = ensureProjectShape({ id: generateId('project'), name: name.trim() });
+    appState.projects.unshift(project);
+    return project;
+}
+
+function updateProjectSnapshot(project, snapshot, formFields) {
+    if (!project) return;
+    project.snapshot = snapshot || project.snapshot || null;
+    if (formFields && typeof formFields === 'object') {
+        project.formFields = {...formFields};
+    }
+    project.updated = new Date().toISOString();
+}
+
+function updateDraftSnapshot(snapshot, formFields) {
+    appState.draft = {
+        snapshot: snapshot || null,
+        formFields: formFields && typeof formFields === 'object' ? {...formFields} : {}
+    };
+}
+
+function recordCurrentSnapshot() {
+    const snapshot = captureSnapshot();
+    const formFields = collectFormFields();
+    const project = getCurrentProject();
+    if (project) {
+        updateProjectSnapshot(project, snapshot, formFields);
+    } else {
+        updateDraftSnapshot(snapshot, formFields);
+    }
+    return { snapshot, formFields };
+}
 
 function autoGrow(el) {
     if (!el) return;
@@ -2060,8 +2238,14 @@ function normalizeColumnSettings(settings) {
 
 function loadColumnSettings() {
     try {
-        const stored = JSON.parse(localStorage.getItem(COLUMN_SETTINGS_KEY) || 'null');
-        return normalizeColumnSettings(stored || {});
+        const project = getCurrentProject();
+        if (project && project.snapshot && project.snapshot.columns) {
+            return normalizeColumnSettings(project.snapshot.columns);
+        }
+        if (appState.draft && appState.draft.snapshot && appState.draft.snapshot.columns) {
+            return normalizeColumnSettings(appState.draft.snapshot.columns);
+        }
+        return getDefaultColumnSettings();
     } catch (err) {
         console.error(err);
         return getDefaultColumnSettings();
@@ -2069,7 +2253,8 @@ function loadColumnSettings() {
 }
 
 function saveColumnSettings(settings) {
-    localStorage.setItem(COLUMN_SETTINGS_KEY, JSON.stringify(settings));
+    columnSettings = normalizeColumnSettings(settings);
+    recordCurrentSnapshot();
 }
 
 function reorderTableColumns(order) {
@@ -2339,7 +2524,7 @@ function captureSnapshot() {
     });
     columnSettings = normalizeColumnSettings(columnSettings || loadColumnSettings());
     const columns = JSON.parse(JSON.stringify(columnSettings));
-    const versions = JSON.parse(localStorage.getItem(VERSION_STORAGE_KEY) || '[]');
+    const versions = getVersions().map(version => ensureVersionShape(version));
     const activeVersion = getActiveVersion();
     return {data, meta, columns, versions, activeVersion};
 }
@@ -2458,12 +2643,11 @@ function loadSnapshot(snapshot) {
 }
 
 function getProjects() {
-    const stored = JSON.parse(localStorage.getItem(PROJECT_STORAGE_KEY) || '[]');
-    return Array.isArray(stored) ? stored : [];
+    return Array.isArray(appState.projects) ? appState.projects : [];
 }
 
 function setProjects(projects) {
-    localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(projects));
+    appState.projects = Array.isArray(projects) ? projects.map(ensureProjectShape) : [];
 }
 
 function cssEscapeValue(value) {
@@ -2542,14 +2726,15 @@ function applyFormFields(values) {
     });
 }
 
-async function speichernDaten(options = {}) {
-    const { projectName = null, silent = false } = options || {};
-    const payload = {
-        snapshot: captureSnapshot(),
-        formFields: collectFormFields(),
-        projectName: projectName || getActiveProject() || '',
-        savedAt: new Date().toISOString()
-    };
+function getAppStatePayload() {
+    const snapshotInfo = recordCurrentSnapshot();
+    appState.lastSavedAt = new Date().toISOString();
+    return cloneAppState(appState);
+}
+
+async function persistAppState(options = {}) {
+    const { silent = false } = options || {};
+    const payload = getAppStatePayload();
     try {
         const response = await fetch('save.php', {
             method: 'POST',
@@ -2567,6 +2752,12 @@ async function speichernDaten(options = {}) {
         } catch (err) {
             result = null;
         }
+        if (result && typeof result === 'object') {
+            if (result.appState) {
+                setAppState(result.appState);
+                hydrateFromAppState();
+            }
+        }
         if (!silent) {
             showNotification('Gespeichert ✓');
         }
@@ -2578,6 +2769,10 @@ async function speichernDaten(options = {}) {
         }
         throw err;
     }
+}
+
+async function speichernDaten(options = {}) {
+    return persistAppState(options);
 }
 
 async function ladenDaten(options = {}) {
@@ -2601,12 +2796,14 @@ async function ladenDaten(options = {}) {
         } catch (err) {
             data = null;
         }
-        if (data && data.snapshot) {
-            loadSnapshot(data.snapshot);
+        if (data && data.appState) {
+            setAppState(data.appState);
+        } else if (data) {
+            setAppState(data);
+        } else {
+            setAppState(createEmptyAppState());
         }
-        if (data && data.formFields) {
-            applyFormFields(data.formFields);
-        }
+        hydrateFromAppState();
         if (!silent) {
             showNotification('Daten geladen');
         }
@@ -2620,34 +2817,59 @@ async function ladenDaten(options = {}) {
     }
 }
 
-function getActiveProject() {
-    return localStorage.getItem(ACTIVE_PROJECT_KEY) || '';
+function hydrateFromAppState() {
+    setAppState(appState);
+    let project = getCurrentProject();
+    if (!project && appState.projects.length) {
+        setCurrentProjectId(appState.projects[0].id);
+        project = getCurrentProject();
+    }
+    let snapshotLoaded = false;
+    if (project && project.snapshot) {
+        snapshotLoaded = loadSnapshot(project.snapshot);
+        if (project.formFields) {
+            applyFormFields(project.formFields);
+        }
+        setCurrentVersionId(project.activeVersionId || '');
+    } else if (appState.draft && appState.draft.snapshot) {
+        setCurrentProjectId('');
+        snapshotLoaded = loadSnapshot(appState.draft.snapshot);
+        if (appState.draft.formFields) {
+            applyFormFields(appState.draft.formFields);
+        }
+    }
+    if (!snapshotLoaded) {
+        calculateTime();
+    }
+    updateProjectSelect();
+    updateVersionSelect();
 }
 
-function setActiveProject(name) {
-    if (name) {
-        localStorage.setItem(ACTIVE_PROJECT_KEY, name);
-    } else {
-        localStorage.removeItem(ACTIVE_PROJECT_KEY);
-    }
+function getActiveProjectId() {
+    return appState.currentProjectId || '';
+}
+
+function setActiveProject(id) {
+    setCurrentProjectId(id);
 }
 
 function updateProjectSelect() {
     const select = document.getElementById('projectSelect');
     if (!select) return;
-    const active = getActiveProject();
+    const activeId = getActiveProjectId();
     select.innerHTML = '<option value="">Projekt laden...</option>';
     const projects = getProjects();
     projects.forEach(project => {
         const opt = document.createElement('option');
-        opt.value = project.name;
+        opt.value = project.id;
+        const labelName = project.name && project.name.trim() ? project.name.trim() : 'Unbenanntes Projekt';
         const dateLabel = project.updated ? ` (${project.updated.substr(0,10)})` : '';
-        opt.textContent = project.name + dateLabel;
+        opt.textContent = labelName + dateLabel;
         select.appendChild(opt);
     });
-    if (active) {
-        select.value = active;
-        if (select.value !== active) select.value = '';
+    if (activeId) {
+        select.value = activeId;
+        if (select.value !== activeId) select.value = '';
     }
 }
 
@@ -2656,26 +2878,24 @@ async function saveProject() {
     const name = rawName ? rawName.trim() : '';
     if (!name) return;
 
-    const snapshot = captureSnapshot();
-    const projects = getProjects().filter(project => project && project.name !== name);
-    const entry = {
-        name,
-        state: snapshot,
-        updated: new Date().toISOString()
-    };
-    projects.unshift(entry);
-    setProjects(projects);
-    setActiveProject(name);
-    saveState();
+    const project = ensureProjectByName(name);
+    if (!project) {
+        showNotification('Projekt konnte nicht erstellt werden.', true);
+        return;
+    }
+    project.name = name;
+    setCurrentProjectId(project.id);
+    recordCurrentSnapshot();
+    setCurrentVersionId(project.activeVersionId || '');
     updateProjectSelect();
     let serverError = null;
     try {
-        await speichernDaten({ projectName: name, silent: true });
+        await persistAppState({ silent: true });
     } catch (err) {
         serverError = err;
     }
     if (serverError) {
-        showNotification('Lokal gespeichert – Server fehlgeschlagen', true);
+        showNotification('Lokale Änderungen gespeichert – Server nicht erreichbar', true);
     } else {
         showNotification('Projekt gespeichert! ✓');
     }
@@ -2684,23 +2904,31 @@ async function saveProject() {
 function loadSelectedProject() {
     const select = document.getElementById('projectSelect');
     if (!select) return;
-    const name = select.value;
-    if (!name) return;
-    const project = getProjects().find(p => p.name === name);
+    const projectId = select.value;
+    if (!projectId) return;
+    const project = findProjectById(projectId);
     if (!project) {
         showNotification('Projekt nicht gefunden.', true);
         updateProjectSelect();
         return;
     }
-    const ok = loadSnapshot(project.state);
-    if (ok) {
-        setActiveProject(name);
-        saveState();
-        showNotification('Projekt geladen!');
-    } else {
-        showNotification('Projekt konnte nicht geladen werden.', true);
+    setCurrentProjectId(project.id);
+    setCurrentVersionId(project.activeVersionId || '');
+    let ok = false;
+    if (project.snapshot) {
+        ok = loadSnapshot(project.snapshot);
+    } else if (appState.draft && appState.draft.snapshot) {
+        ok = loadSnapshot(appState.draft.snapshot);
+    }
+    if (!ok) {
+        calculateTime();
+    }
+    if (project.formFields) {
+        applyFormFields(project.formFields);
     }
     updateProjectSelect();
+    updateVersionSelect();
+    showNotification(ok ? 'Projekt geladen!' : 'Leeres Projekt geladen');
 }
 
 function exportProject() {
@@ -2728,18 +2956,55 @@ function importProjectFile(event) {
     reader.onload = function(e) {
         try {
             const content = JSON.parse(e.target.result);
+            if (content && typeof content === 'object' && Array.isArray(content.projects)) {
+                setAppState(content);
+                hydrateFromAppState();
+                showNotification('Projekt importiert!');
+                return;
+            }
             let snapshot = content;
             if (content && content.snapshot) snapshot = content.snapshot;
             if (content && content.state && !snapshot.data) snapshot = content.state;
-            const ok = loadSnapshot(snapshot);
-            if (ok) {
-                saveState();
-                setActiveProject('');
-                updateProjectSelect();
-                showNotification('Projekt importiert!');
-            } else {
-                showNotification('Projekt konnte nicht geladen werden.', true);
+            if (typeof snapshot === 'string') {
+                snapshot = JSON.parse(snapshot);
             }
+            if (!snapshot || typeof snapshot !== 'object') {
+                showNotification('Projektdatei ist ungültig.', true);
+                return;
+            }
+            const baseName = (snapshot.meta && (snapshot.meta.productionTitle || snapshot.meta.clientName))
+                ? String(snapshot.meta.productionTitle || snapshot.meta.clientName).trim()
+                : '';
+            const fallbackName = `Import ${new Date().toISOString().slice(0,10)}`;
+            let finalName = baseName || fallbackName;
+            let suffix = 2;
+            while (findProjectByName(finalName)) {
+                finalName = `${baseName || fallbackName} (${suffix++})`;
+            }
+            const project = ensureProjectByName(finalName);
+            if (!project) {
+                showNotification('Projekt konnte nicht angelegt werden.', true);
+                return;
+            }
+            project.name = finalName;
+            setCurrentProjectId(project.id);
+            setCurrentVersionId(project.activeVersionId || '');
+            const ok = loadSnapshot(snapshot);
+            if (content && content.formFields) {
+                applyFormFields(content.formFields);
+            }
+            if (!ok) {
+                showNotification('Projekt konnte nicht geladen werden.', true);
+                return;
+            }
+            recordCurrentSnapshot();
+            updateProjectSelect();
+            updateVersionSelect();
+            persistAppState({ silent: true }).catch(err => {
+                console.debug('Import konnte nicht auf dem Server gespeichert werden:', err);
+                showNotification('Import lokal gespeichert – Server nicht erreichbar', true);
+            });
+            showNotification('Projekt importiert!');
         } catch (err) {
             console.error(err);
             showNotification('Ungültige Projektdatei.', true);
@@ -2959,71 +3224,28 @@ function normalizeVersionSeed() {
 }
 
 function normalizeStoredVersion(entry) {
-    const normalized = entry && typeof entry === 'object' ? {...entry} : {};
-    if (!normalized.id) {
-        normalized.id = normalizeVersionSeed();
-    } else {
-        normalized.id = String(normalized.id);
-    }
-    if (typeof normalized.name !== 'string') {
-        normalized.name = '';
-    } else {
-        normalized.name = normalized.name.trim();
-    }
-    if (typeof normalized.date !== 'string') {
-        normalized.date = '';
-    } else {
-        normalized.date = normalized.date.trim();
-    }
-    if (typeof normalized.state !== 'string') {
-        normalized.state = '';
-    }
-    return normalized;
+    return ensureVersionShape(entry);
 }
 
 function getVersions() {
-    let stored;
-    try {
-        stored = JSON.parse(localStorage.getItem(VERSION_STORAGE_KEY) || '[]');
-    } catch (err) {
-        console.error('Version list konnte nicht gelesen werden.', err);
-        stored = [];
+    const project = getCurrentProject();
+    if (!project) return [];
+    if (!Array.isArray(project.versions)) {
+        project.versions = [];
     }
-    if (!Array.isArray(stored)) stored = [];
-    let mutated = false;
-    const versions = stored.map(item => {
-        const normalized = normalizeStoredVersion(item);
-        if (!mutated) {
-            const orig = item && typeof item === 'object' ? item : {};
-            if (String(orig.id) !== normalized.id ||
-                (typeof orig.name !== 'string' ? '' : orig.name) !== normalized.name ||
-                (typeof orig.date !== 'string' ? '' : orig.date) !== normalized.date ||
-                (typeof orig.state !== 'string' ? '' : orig.state) !== normalized.state) {
-                mutated = true;
-            }
-        }
-        return normalized;
-    });
-    if (mutated) {
-        setVersions(versions);
-    }
-    return versions;
+    return project.versions;
 }
 
 function setVersions(versions) {
-    try {
-        localStorage.setItem(VERSION_STORAGE_KEY, JSON.stringify(versions));
-        return true;
-    } catch (err) {
-        console.error('Versionen konnten nicht gespeichert werden.', err);
-        return false;
-    }
+    const project = getCurrentProject();
+    if (!project) return false;
+    project.versions = Array.isArray(versions) ? versions.map(ensureVersionShape) : [];
+    return true;
 }
 
 function normalizeVersionEntry(entry) {
     if (!entry) return null;
-    const normalized = normalizeStoredVersion(entry);
-    return normalized;
+    return normalizeStoredVersion(entry);
 }
 
 function mergeVersionLists(existing, incoming) {
@@ -3045,15 +3267,11 @@ function mergeVersionLists(existing, incoming) {
 }
 
 function getActiveVersion() {
-    return localStorage.getItem(ACTIVE_VERSION_KEY) || '';
+    return appState.currentVersionId || '';
 }
 
 function setActiveVersion(id) {
-    if (!id) {
-        localStorage.removeItem(ACTIVE_VERSION_KEY);
-    } else {
-        localStorage.setItem(ACTIVE_VERSION_KEY, String(id));
-    }
+    setCurrentVersionId(id ? String(id) : '');
 }
 
 function handleMovementChange(selectEl) {
@@ -3914,8 +4132,8 @@ function updateUndoButtonVisibility(show) {
 
 function undoClear() {
     if (!lastResetState) return;
-    localStorage.setItem(CURRENT_STATE_KEY, lastResetState);
-    loadState();
+    const snapshot = JSON.parse(JSON.stringify(lastResetState));
+    loadSnapshot(snapshot);
     lastResetState = null;
     updateUndoButtonVisibility(false);
 }
@@ -4913,40 +5131,41 @@ function handleImageUpload(input) {
 }
 
 function clearAll() {
-    saveState();
-    const previousState = localStorage.getItem(CURRENT_STATE_KEY);
-    lastResetState = previousState;
+    const previous = recordCurrentSnapshot().snapshot;
+    lastResetState = previous ? JSON.parse(JSON.stringify(previous)) : null;
     const tbody = document.getElementById('shotlistBody');
     closeImageOverlay();
     if (tbody) tbody.innerHTML = '';
     clearSelection();
     lastEditedRow = null;
     calculateTime();
-    saveState();
-    updateUndoButtonVisibility(!!lastResetState && lastResetState !== '');
+    recordCurrentSnapshot();
+    updateUndoButtonVisibility(!!lastResetState);
 }
 
 // Versionierung (Speichern/Laden)
-function saveState() {
+function saveState({ persist = false } = {}) {
     if (isRestoringState) return;
-    const snapshot = captureSnapshot();
-    localStorage.setItem(CURRENT_STATE_KEY, JSON.stringify(snapshot));
+    recordCurrentSnapshot();
     if (!isRestoringState && getActiveVersion()) {
         setActiveVersion('');
         updateVersionSelect();
     }
+    if (persist) {
+        persistAppState({ silent: true }).catch(err => {
+            console.debug('Automatisches Speichern fehlgeschlagen:', err);
+        });
+    }
 }
 
 function loadState() {
-    const state = localStorage.getItem(CURRENT_STATE_KEY);
-    if (!state) return false;
-    try {
-        const snapshot = JSON.parse(state);
-        return loadSnapshot(snapshot);
-    } catch (err) {
-        console.error(err);
-        return false;
+    const project = getCurrentProject();
+    let snapshot = project && project.snapshot ? project.snapshot : null;
+    if (!snapshot && appState.draft && appState.draft.snapshot) {
+        snapshot = appState.draft.snapshot;
     }
+    if (!snapshot) return false;
+    return loadSnapshot(snapshot);
 }
 
 function openSaveVersionModal() {
@@ -4981,9 +5200,9 @@ function handleVersionFormSubmit(evt) {
         input.focus();
         return;
     }
-    saveState();
-    const state = localStorage.getItem(CURRENT_STATE_KEY);
-    if (!state) {
+    const snapshotInfo = recordCurrentSnapshot();
+    const snapshot = snapshotInfo.snapshot;
+    if (!snapshot) {
         showNotification('Keine Shotlist-Daten vorhanden.', true);
         return;
     }
@@ -4999,19 +5218,25 @@ function handleVersionFormSubmit(evt) {
         input.select();
         return;
     }
-    const id = Date.now().toString();
-    versions.push({
+    const id = generateId('version');
+    const snapshotClone = JSON.parse(JSON.stringify(snapshot));
+    const entry = ensureVersionShape({
         id,
-        name: name,
+        name,
         date: new Date().toISOString(),
-        state
+        snapshot: snapshotClone
     });
+    versions.push(entry);
     if (!setVersions(versions)) {
         showNotification('Version konnte nicht gespeichert werden (Speicher voll?)', true);
         return;
     }
     setActiveVersion(id);
     updateVersionSelect();
+    persistAppState({ silent: true }).catch(err => {
+        console.debug('Version konnte nicht zum Server gespeichert werden:', err);
+        showNotification('Version lokal gespeichert – Server nicht erreichbar', true);
+    });
     showNotification('Version gespeichert!');
     closeVersionModal();
 }
@@ -5052,11 +5277,22 @@ function loadSelectedVersion() {
         updateVersionSelect();
         return;
     }
-    localStorage.setItem(CURRENT_STATE_KEY, version.state);
+    let snapshot = version.snapshot;
+    if (!snapshot && typeof version.state === 'string') {
+        try {
+            snapshot = JSON.parse(version.state);
+        } catch (err) {
+            console.error('Version konnte nicht geparst werden.', err);
+        }
+    }
+    if (!snapshot) {
+        showNotification('Version enthält keine Daten.', true);
+        return;
+    }
     suppressActiveVersionUpdate = true;
     try {
         setActiveVersion(id);
-        loadState();
+        loadSnapshot(snapshot);
     } finally {
         suppressActiveVersionUpdate = false;
     }
@@ -5081,6 +5317,10 @@ function deleteSelectedVersion() {
         setActiveVersion('');
     }
     updateVersionSelect();
+    persistAppState({ silent: true }).catch(err => {
+        console.debug('Version konnte nicht vom Server gelöscht werden:', err);
+        showNotification('Version lokal gelöscht – Server nicht erreichbar', true);
+    });
     showNotification('Version gelöscht!');
 }
 

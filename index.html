@@ -3460,9 +3460,11 @@ function updateSceneSummary(summaryData) {
                 buildShotLabel(shot.scene, shot.shot, shot.name)
             );
             
+            const sceneLabel = scene.scene ? `Scene ${scene.scene}` : 'Scene —';
+            
             entries.push({
                 type: 'scene',
-                label: `Scene ${scene.scene}`,
+                label: sceneLabel,
                 shotCount: scene.shots.length,
                 shotList: shotLabels.join(', '),
                 timeRange: formatTimeRangeFromMinutes(scene.start, scene.end),
@@ -3475,74 +3477,84 @@ function updateSceneSummary(summaryData) {
         // Plan-Modus: Chronologische Reihenfolge mit Specials
         const allItems = [];
         
-        // Alle Szenen und Locations sammeln
+        // Alle Szenen sammeln
         scenes.forEach(scene => {
             if (scene && scene.shots && scene.shots.length > 0) {
-                allItems.push({...scene, type: 'scene'});
+                const shotLabels = scene.shots.map(shot => 
+                    buildShotLabel(shot.scene, shot.shot, shot.name)
+                );
+                
+                const sceneLabel = scene.scene ? `Scene ${scene.scene}` : 'Scene —';
+                
+                allItems.push({
+                    type: 'scene',
+                    label: sceneLabel,
+                    shotCount: scene.shots.length,
+                    shotList: shotLabels.join(', '),
+                    timeRange: formatTimeRangeFromMinutes(scene.start, scene.end),
+                    duration: formatDurationMinutes(scene.duration || 0),
+                    location: Array.from(scene.locations || []).join(', ') || '—',
+                    start: scene.start,
+                    sortTime: scene.start || 0
+                });
             }
         });
         
+        // Alle Locations sammeln
         locations.forEach(location => {
             if (location && location.shots && location.shots.length > 0) {
-                allItems.push({...location, type: 'location'});
+                const shotLabels = location.shots.map(shot => 
+                    buildShotLabel(shot.scene, shot.shot, shot.name)
+                );
+                
+                const sceneLabel = location.scene ? `Scene ${location.scene}` : 'Scene —';
+                
+                allItems.push({
+                    type: 'scene',
+                    label: sceneLabel,
+                    shotCount: location.shots.length,
+                    shotList: shotLabels.join(', '),
+                    timeRange: formatTimeRangeFromMinutes(location.start, location.end),
+                    duration: formatDurationMinutes(location.duration || 0),
+                    location: Array.from(location.locations || []).join(', ') || '—',
+                    start: location.start,
+                    sortTime: location.start || 0
+                });
             }
         });
         
-        // Nach Reihenfolge sortieren
-        allItems.sort((a, b) => (a.order || 0) - (b.order || 0));
-        
-        // Start-Specials zuerst
-        sortedSpecials.filter(s => s.specialType === 'start').forEach(special => {
-            entries.push({
-                type: 'special',
-                specialType: special.specialType,
-                label: 'Start – Briefing/Aufbau',
-                duration: special.duration || 0,
-                start: special.start,
-                end: special.end
-            });
-        });
-        
-        // Dann alle Szenen/Locations
-        allItems.forEach(item => {
-            const shotLabels = item.shots.map(shot => 
-                buildShotLabel(shot.scene, shot.shot, shot.name)
-            );
+        // Alle Specials sammeln
+        sortedSpecials.forEach(special => {
+            let label = special.label;
+            if (special.specialType === 'start') {
+                label = 'Start – Briefing/Aufbau';
+            } else if (special.specialType === 'pause') {
+                label = 'Pause';
+            } else if (special.specialType === 'wrap') {
+                label = 'Wrap';
+            }
             
-            entries.push({
-                type: 'scene',
-                label: `Scene ${item.scene}`,
-                shotCount: item.shots.length,
-                shotList: shotLabels.join(', '),
-                timeRange: formatTimeRangeFromMinutes(item.start, item.end),
-                duration: formatDurationMinutes(item.duration || 0),
-                location: Array.from(item.locations || []).join(', ') || '—'
+            allItems.push({
+                type: 'special',
+                specialType: special.specialType,
+                label: label,
+                duration: special.duration || 0,
+                start: special.start,
+                end: special.end,
+                sortTime: special.start || (special.specialType === 'start' ? -Infinity : 
+                          special.specialType === 'wrap' ? Infinity : 0)
             });
         });
         
-        // Pause-Specials
-        sortedSpecials.filter(s => s.specialType === 'pause').forEach(special => {
-            entries.push({
-                type: 'special',
-                specialType: special.specialType,
-                label: 'Pause',
-                duration: special.duration || 0,
-                start: special.start,
-                end: special.end
-            });
+        // ALLE Items chronologisch nach Startzeit sortieren
+        allItems.sort((a, b) => {
+            const timeA = a.sortTime || 0;
+            const timeB = b.sortTime || 0;
+            return timeA - timeB;
         });
         
-        // Wrap-Specials zuletzt
-        sortedSpecials.filter(s => s.specialType === 'wrap').forEach(special => {
-            entries.push({
-                type: 'special',
-                specialType: special.specialType,
-                label: 'Wrap',
-                duration: special.duration || 0,
-                start: special.start,
-                end: special.end
-            });
-        });
+        // Sortierte Items zu entries hinzufügen
+        entries.push(...allItems);
 
     } else if (sceneSummaryMode === 'location') {
         // Location-Modus: Gruppiert nach Locations
@@ -3555,9 +3567,11 @@ function updateSceneSummary(summaryData) {
                 buildShotLabel(shot.scene, shot.shot, shot.name)
             );
             
+            const locationLabel = location.location ? `Location ${location.location}` : 'Location —';
+            
             entries.push({
                 type: 'location',
-                label: `Location ${location.location}`,
+                label: locationLabel,
                 shotCount: location.shots.length,
                 shotList: joinWithSceneSeparators(shotLabels),
                 timeRange: formatTimeRangeFromMinutes(location.start, location.end),
@@ -4089,7 +4103,11 @@ function calculateTime() {
             }
             metric.count += 1;
             metric.duration += rowDurationContribution;
-            metric.shots.push(shotLabelForRow || '—');
+            metric.shots.push({
+                scene: sceneValueForRow,
+                shot: shotLabelForRow,
+                name: shotLabelForRow
+            });
             if (displayStartMinutes != null) {
                 metric.start = metric.start == null ? displayStartMinutes : Math.min(metric.start, displayStartMinutes);
             }
@@ -4127,7 +4145,11 @@ function calculateTime() {
             }
             currentSegment.count += 1;
             currentSegment.duration += rowDurationContribution;
-            currentSegment.shots.push(shotLabelForRow || '—');
+            currentSegment.shots.push({
+                scene: sceneValueForRow,
+                shot: shotLabelForRow,
+                name: shotLabelForRow
+            });
             if (locationLabel) {
                 currentSegment.locations.add(locationLabel);
             }
@@ -4150,7 +4172,11 @@ function calculateTime() {
             }
             locationMetric.count += 1;
             locationMetric.duration += rowDurationContribution;
-            locationMetric.shots.push(shotLabelForRow || '—');
+            locationMetric.shots.push({
+                scene: sceneValueForRow,
+                shot: shotLabelForRow,
+                name: shotLabelForRow
+            });
             if (displayStartMinutes != null) {
                 locationMetric.start = locationMetric.start == null ? displayStartMinutes : Math.min(locationMetric.start, displayStartMinutes);
             }
@@ -4202,7 +4228,11 @@ function calculateTime() {
             }
             currentLocationSegment.count += 1;
             currentLocationSegment.duration += rowDurationContribution;
-            currentLocationSegment.shots.push(shotLabelForRow || '—');
+            currentLocationSegment.shots.push({
+                scene: sceneValueForRow,
+                shot: shotLabelForRow,
+                name: shotLabelForRow
+            });
             if (sceneValueForRow) {
                 currentLocationSegment.scenes.add(sceneValueForRow);
             }

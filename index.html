@@ -840,6 +840,32 @@
             font-weight: normal;
         }
 
+        .scene-summary-row-scene td {
+            background: rgba(255, 255, 255, 0.06);
+            font-weight: 700;
+            color: var(--color-text-primary);
+        }
+
+        .scene-summary-row-scene td:first-child {
+            font-weight: 700;
+        }
+
+        .scene-summary-row-shotgroup td {
+            background: rgba(255, 255, 255, 0.035);
+            color: var(--color-text-secondary);
+        }
+
+        .scene-summary-row-shotgroup td:first-child {
+            padding-left: 24px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .scene-summary-row-shotgroup td:nth-child(2),
+        .scene-summary-row-shotgroup td:nth-child(3) {
+            color: var(--color-text-primary);
+        }
+
         .duration-negative {
             font-style: italic;
         }
@@ -900,6 +926,15 @@
 
         .scene-summary-row-pause:hover td {
             background: linear-gradient(135deg, rgba(156,133,0,0.45) 0%, rgba(156,133,0,0.26) 100%) !important;
+        }
+
+        .scene-summary-row-umbau td {
+            background: linear-gradient(135deg, rgba(180,95,6,0.35) 0%, rgba(180,95,6,0.18) 100%) !important;
+            border-left: 3px solid var(--color-accent-umbau);
+        }
+
+        .scene-summary-row-umbau:hover td {
+            background: linear-gradient(135deg, rgba(180,95,6,0.45) 0%, rgba(180,95,6,0.26) 100%) !important;
         }
 
         .scene-summary-row-wrap td {
@@ -3472,57 +3507,30 @@ function updateSceneSummary(summaryData) {
         });
 
     } else if (sceneSummaryMode === 'plan') {
-        // Plan-Modus: Chronologische Reihenfolge mit Specials
-        const allItems = [];
-        
-        // Alle Szenen sammeln
-        scenes.forEach(scene => {
-            if (scene && scene.shots && scene.shots.length > 0) {
-                const shotLabels = scene.shots.map(shot => 
-                    buildShotLabel(shot.scene, shot.shot, shot.name)
-                );
-                
-                const sceneLabel = scene.scene ? `Scene ${scene.scene}` : 'Scene —';
-                
-                allItems.push({
-                    type: 'scene',
-                    label: sceneLabel,
-                    shotCount: scene.shots.length,
-                    shotList: shotLabels.join(', '),
-                    timeRange: formatTimeRangeFromMinutes(scene.start, scene.end),
-                    duration: formatDurationMinutes(scene.duration || 0),
-                    location: Array.from(scene.locations || []).join(', ') || '—',
-                    start: scene.start,
-                    sortTime: scene.start || 0
-                });
-            }
+        // Plan-Modus: Szenensummen + Shotgruppen in zeitlicher Reihenfolge
+        const aggregatedScenesMap = summaryData.scenes && summaryData.scenes.aggregated instanceof Map
+            ? summaryData.scenes.aggregated
+            : new Map(summaryData.scenes && summaryData.scenes.aggregated ? summaryData.scenes.aggregated : []);
+        const segments = Array.isArray(summaryData.scenes && summaryData.scenes.segments)
+            ? summaryData.scenes.segments.slice()
+            : [];
+
+        const timeline = [];
+
+        segments.forEach((segment, index) => {
+            if (!segment) return;
+            const startCandidate = (typeof segment.start === 'number' && !Number.isNaN(segment.start))
+                ? segment.start
+                : (typeof segment.end === 'number' && !Number.isNaN(segment.end) ? segment.end : Number.MAX_SAFE_INTEGER);
+            timeline.push({
+                kind: 'segment',
+                segment,
+                sortTime: startCandidate,
+                order: index
+            });
         });
-        
-        // Alle Locations sammeln
-        locations.forEach(location => {
-            if (location && location.shots && location.shots.length > 0) {
-                const shotLabels = location.shots.map(shot => 
-                    buildShotLabel(shot.scene, shot.shot, shot.name)
-                );
-                
-                const sceneLabel = location.scene ? `Scene ${location.scene}` : 'Scene —';
-                
-                allItems.push({
-                    type: 'scene',
-                    label: sceneLabel,
-                    shotCount: location.shots.length,
-                    shotList: shotLabels.join(', '),
-                    timeRange: formatTimeRangeFromMinutes(location.start, location.end),
-                    duration: formatDurationMinutes(location.duration || 0),
-                    location: Array.from(location.locations || []).join(', ') || '—',
-                    start: location.start,
-                    sortTime: location.start || 0
-                });
-            }
-        });
-        
-        // Alle Specials sammeln
-        sortedSpecials.forEach(special => {
+
+        sortedSpecials.forEach((special, index) => {
             let label = special.label;
             if (special.specialType === 'start') {
                 label = 'Start – Briefing/Aufbau';
@@ -3530,29 +3538,84 @@ function updateSceneSummary(summaryData) {
                 label = 'Pause';
             } else if (special.specialType === 'wrap') {
                 label = 'Wrap';
+            } else if (special.specialType === 'umbau') {
+                label = special.label && special.label.startsWith('Umbau') ? special.label : 'Umbau';
             }
-            
-            allItems.push({
-                type: 'special',
-                specialType: special.specialType,
-                label: label,
-                duration: special.duration || 0,
-                start: special.start,
-                end: special.end,
-                sortTime: special.start || (special.specialType === 'start' ? -Infinity : 
-                          special.specialType === 'wrap' ? Infinity : 0)
+            const sortTime = (typeof special.start === 'number' && !Number.isNaN(special.start))
+                ? special.start
+                : (special.specialType === 'start' ? -Infinity : special.specialType === 'wrap' ? Infinity : Number.MAX_SAFE_INTEGER);
+            timeline.push({
+                kind: 'special',
+                special: Object.assign({}, special, { label }),
+                sortTime,
+                order: segments.length + index
             });
         });
-        
-        // ALLE Items chronologisch nach Startzeit sortieren
-        allItems.sort((a, b) => {
-            const timeA = a.sortTime || 0;
-            const timeB = b.sortTime || 0;
-            return timeA - timeB;
+
+        timeline.sort((a, b) => {
+            if (a.sortTime === b.sortTime) return a.order - b.order;
+            if (a.sortTime === undefined) return 1;
+            if (b.sortTime === undefined) return -1;
+            return a.sortTime - b.sortTime;
         });
-        
-        // Sortierte Items zu entries hinzufügen
-        entries.push(...allItems);
+
+        const renderedSceneSummaries = new Set();
+
+        timeline.forEach(item => {
+            if (item.kind === 'special') {
+                const special = item.special;
+                entries.push({
+                    type: 'special',
+                    specialType: special.specialType,
+                    label: special.label,
+                    duration: special.duration || 0,
+                    start: special.start,
+                    end: special.end
+                });
+                return;
+            }
+
+            const segment = item.segment;
+            const sceneKey = segment.sceneKey || (segment.scene ? segment.scene : '__blank__');
+            if (!renderedSceneSummaries.has(sceneKey)) {
+                renderedSceneSummaries.add(sceneKey);
+                const sceneMetric = aggregatedScenesMap.get(sceneKey) || aggregatedScenesMap.get(sceneKey === '__blank__' ? '' : sceneKey);
+                if (sceneMetric) {
+                    const shotLabels = Array.isArray(sceneMetric.shots)
+                        ? sceneMetric.shots.map(shot => buildShotLabel(shot.scene, shot.shot, shot.name))
+                        : [];
+                    entries.push({
+                        type: 'scene-summary',
+                        label: sceneMetric.scene ? `Scene ${sceneMetric.scene}` : 'Scene —',
+                        shotCount: Array.isArray(sceneMetric.shots) ? sceneMetric.shots.length : (sceneMetric.count || 0),
+                        shotList: shotLabels.join(', '),
+                        timeRange: '',
+                        duration: formatDurationMinutes(sceneMetric.duration || 0),
+                        location: Array.from(sceneMetric.locations || []).join(', ') || '—'
+                    });
+                }
+            }
+
+            const shotLabels = Array.isArray(segment.shots)
+                ? segment.shots.map(shot => buildShotLabel(shot.scene, shot.shot, shot.name))
+                : [];
+            const sceneLabel = segment.scene ? `Scene ${segment.scene}` : 'Scene —';
+            const groupLabel = `${sceneLabel} - Gruppe ${segment.part || 1}`;
+            const hasSpan = typeof segment.start === 'number' && !Number.isNaN(segment.start) &&
+                typeof segment.end === 'number' && !Number.isNaN(segment.end);
+            const spanMinutes = hasSpan ? Math.max(0, segment.end - segment.start) : null;
+            const durationMinutes = spanMinutes != null ? spanMinutes : segment.duration || 0;
+
+            entries.push({
+                type: 'shotgroup',
+                label: groupLabel,
+                shotCount: Array.isArray(segment.shots) ? segment.shots.length : (segment.count || 0),
+                shotList: shotLabels.join(', '),
+                timeRange: formatTimeRangeFromMinutes(segment.start, segment.end),
+                duration: formatDurationMinutes(durationMinutes),
+                location: Array.from(segment.locations || []).join(', ') || '—'
+            });
+        });
 
     } else if (sceneSummaryMode === 'location') {
         // Location-Modus: Gruppiert nach Locations
@@ -3623,10 +3686,33 @@ function updateSceneSummary(summaryData) {
                 <td>${durationDisplay}</td>
                 <td></td>
             `;
+        } else if (entry.type === 'scene-summary') {
+            row.classList.add('scene-summary-row-scene');
+            row.innerHTML = `
+                <td>${entry.label}</td>
+                <td>${entry.shotCount}</td>
+                <td>${entry.shotList || '—'}</td>
+                <td>${entry.timeRange || ''}</td>
+                <td>${entry.duration}</td>
+                <td>${entry.location || '—'}</td>
+            `;
+        } else if (entry.type === 'shotgroup') {
+            row.classList.add('scene-summary-row-shotgroup');
+            row.innerHTML = `
+                <td>${entry.label}</td>
+                <td>${entry.shotCount}</td>
+                <td>${entry.shotList || '—'}</td>
+                <td>${entry.timeRange}</td>
+                <td>${entry.duration}</td>
+                <td>${entry.location || '—'}</td>
+            `;
         } else {
             const locationColumn = sceneSummaryMode === 'location' 
                 ? entry.scenes || '—'
                 : entry.location || '—';
+            if (entry.type === 'scene') {
+                row.classList.add('scene-summary-row-scene');
+            }
             
             row.innerHTML = `
                 <td>${entry.label}</td>
@@ -3986,6 +4072,10 @@ function calculateTime() {
             rowDurationContribution = v;
             currentSegment = null;
             currentLocationSegment = null;
+            specialType = 'umbau';
+            const departmentField = row.querySelector('.umbau-department-input');
+            const departmentLabel = departmentField ? departmentField.value.trim() : '';
+            specialLabel = departmentLabel ? `Umbau - ${departmentLabel}` : 'Umbau';
         } else if (row.classList.contains('start-row')) {
             const input = row.querySelector('.start-duration-input');
             const v = parseInt(input ? input.value : 0, 10) || 0;

@@ -844,6 +844,7 @@
             background: rgba(255, 255, 255, 0.06);
             font-weight: 700;
             color: var(--color-text-primary);
+            white-space: nowrap;
         }
 
         .scene-summary-row-scene td:first-child {
@@ -851,19 +852,34 @@
         }
 
         .scene-summary-row-shotgroup td {
-            background: rgba(255, 255, 255, 0.035);
+            background: rgba(255, 255, 255, 0.02);
             color: var(--color-text-secondary);
+            white-space: nowrap;
+            font-size: 12px;
+            font-weight: 400;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .scene-summary-row-shotgroup td:first-child {
-            padding-left: 24px;
-            font-weight: 600;
-            color: var(--color-text-primary);
+            padding-left: 28px;
+            font-weight: 400;
+            color: var(--color-text-muted);
         }
 
         .scene-summary-row-shotgroup td:nth-child(2),
-        .scene-summary-row-shotgroup td:nth-child(3) {
-            color: var(--color-text-primary);
+        .scene-summary-row-shotgroup td:nth-child(3),
+        .scene-summary-row-shotgroup td:nth-child(4),
+        .scene-summary-row-shotgroup td:nth-child(5),
+        .scene-summary-row-shotgroup td:nth-child(6) {
+            color: var(--color-text-secondary);
+        }
+
+        .scene-summary-row-shotgroup-label {
+            font-weight: 400;
+            font-size: 12px;
+            color: var(--color-text-muted);
+            white-space: nowrap;
         }
 
         .duration-negative {
@@ -3531,6 +3547,9 @@ function updateSceneSummary(summaryData) {
         });
 
         sortedSpecials.forEach((special, index) => {
+            if (special && special.specialType === 'umbau') {
+                return;
+            }
             let label = special.label;
             if (special.specialType === 'start') {
                 label = 'Start – Briefing/Aufbau';
@@ -3599,8 +3618,10 @@ function updateSceneSummary(summaryData) {
             const shotLabels = Array.isArray(segment.shots)
                 ? segment.shots.map(shot => buildShotLabel(shot.scene, shot.shot, shot.name))
                 : [];
-            const sceneLabel = segment.scene ? `Scene ${segment.scene}` : 'Scene —';
-            const groupLabel = `${sceneLabel} - Gruppe ${segment.part || 1}`;
+            const sceneNumberLabel = (segment.scene && String(segment.scene).trim().length)
+                ? String(segment.scene).trim()
+                : '—';
+            const groupLabel = `#${sceneNumberLabel} Block ${segment.part || 1}`;
             const hasSpan = typeof segment.start === 'number' && !Number.isNaN(segment.start) &&
                 typeof segment.end === 'number' && !Number.isNaN(segment.end);
             const spanMinutes = hasSpan ? Math.max(0, segment.end - segment.start) : null;
@@ -3699,7 +3720,7 @@ function updateSceneSummary(summaryData) {
         } else if (entry.type === 'shotgroup') {
             row.classList.add('scene-summary-row-shotgroup');
             row.innerHTML = `
-                <td>${entry.label}</td>
+                <td><span class="scene-summary-row-shotgroup-label">${entry.label}</span></td>
                 <td>${entry.shotCount}</td>
                 <td>${entry.shotList || '—'}</td>
                 <td>${entry.timeRange}</td>

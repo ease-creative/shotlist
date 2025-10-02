@@ -2015,8 +2015,6 @@
     <!-- Neuer Script-Block -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script>
-// Base URL für Server (einfach anpassen wenn Port oder Host sich ändern)
-const SHOTLIST_SERVER = "http://192.168.178.178:44620";
 
 // Shotlist Funktionen
 const VERSION_STORAGE_KEY = 'shotlist-versions';
@@ -2467,30 +2465,6 @@ function setProjects(projects) {
     localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(projects));
 }
 
-// === Server-Integration ===
-async function saveProjectToServer(projectName, snapshot) {
-    try {
-        const res = await fetch(`${SHOTLIST_SERVER}/public-save`, {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({ name: projectName, state: snapshot })
-        });
-
-        if (!res.ok) {
-            const errMsg = await res.text();
-            throw new Error(errMsg || `Server-Fehler: ${res.status}`);
-        }
-
-        const data = await res.json();
-        console.log("✅ Gespeichert:", data);
-        return data;
-
-    } catch (err) {
-        console.error("❌ Fehler beim Speichern:", err);
-        throw err;
-    }
-}
-
 function getActiveProject() {
     return localStorage.getItem(ACTIVE_PROJECT_KEY) || '';
 }
@@ -2522,17 +2496,24 @@ function updateProjectSelect() {
     }
 }
 
-async function saveProject() {
-    const name = prompt("Projektname eingeben:");
+function saveProject() {
+    const rawName = prompt("Projektname eingeben:");
+    const name = rawName ? rawName.trim() : '';
     if (!name) return;
-    const snapshot = captureSnapshot();
 
-    try {
-        await saveProjectToServer(name, snapshot);
-        alert("✅ Projekt erfolgreich am Server gespeichert!");
-    } catch (err) {
-        alert("❌ Konnte nicht am Server speichern!");
-    }
+    const snapshot = captureSnapshot();
+    const projects = getProjects().filter(project => project && project.name !== name);
+    const entry = {
+        name,
+        state: snapshot,
+        updated: new Date().toISOString()
+    };
+    projects.unshift(entry);
+    setProjects(projects);
+    setActiveProject(name);
+    saveState();
+    updateProjectSelect();
+    showNotification('Projekt lokal gespeichert!');
 }
 
 function loadSelectedProject() {

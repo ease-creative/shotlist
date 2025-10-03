@@ -154,7 +154,8 @@
             font-weight: 700;
         }
 
-        .preview-toggle-btn {
+        .preview-toggle-btn,
+        .layout-toggle-btn {
             display: block;
             margin-top: 8px;
             padding: 4px 10px;
@@ -169,7 +170,9 @@
         }
 
         .preview-toggle-btn:hover,
-        body.preview-mode #previewToggleBtn {
+        body.preview-mode #previewToggleBtn,
+        .layout-toggle-btn:hover,
+        #layoutToggleBtn[aria-pressed="true"] {
             background: rgba(31,122,140,0.35);
             border-color: rgba(31,122,140,0.6);
             color: var(--color-text-primary);
@@ -727,6 +730,16 @@
             overflow-x: auto;
             max-height: 70vh;
             margin-bottom: 30px;
+        }
+
+        .container.full-mode .table-container {
+            max-height: none;
+            overflow: visible;
+            margin-bottom: 40px;
+        }
+
+        .container.full-mode .scene-summary {
+            margin-top: 40px;
         }
         
         .scene-summary {
@@ -1775,12 +1788,13 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container compact-mode">
         <div class="header">
             <div class="title-section">
                 <h1>SHOTLIST</h1>
                 <input type="text" id="clientName" placeholder="Client Name" class="client-input">
                 <button type="button" id="previewToggleBtn" class="preview-toggle-btn" onclick="togglePreviewMode()" aria-pressed="false" title="Preview-Modus umschalten">Preview</button>
+                <button type="button" id="layoutToggleBtn" class="layout-toggle-btn" onclick="toggleLayoutMode()" aria-pressed="false" title="Zur Vollansicht wechseln">Vollansicht</button>
             </div>
             <div class="time-tracking">
                 <div class="time-info">
@@ -2044,6 +2058,8 @@ function cloneAppState(value) {
 
 let appState = createEmptyAppState();
 const LOCAL_APP_STATE_KEY = 'shotlist-app-state';
+let layoutMode = 'compact';
+const LAYOUT_MODE_KEY = 'shotlist-layout-mode';
 
 function saveAppStateLocally(state = appState) {
     try {
@@ -2071,6 +2087,34 @@ function clearLocalAppState() {
     } catch (err) {
         console.debug('Lokales Löschen nicht möglich:', err);
     }
+}
+
+function applyLayoutMode(mode, { persist = true } = {}) {
+    const container = document.querySelector('.container');
+    if (!container) return;
+    const next = mode === 'full' ? 'full' : 'compact';
+    layoutMode = next;
+    container.classList.remove('compact-mode', 'full-mode');
+    container.classList.add(`${next}-mode`);
+    const btn = document.getElementById('layoutToggleBtn');
+    if (btn) {
+        const isFull = next === 'full';
+        btn.textContent = isFull ? 'Kompaktansicht' : 'Vollansicht';
+        btn.setAttribute('aria-pressed', isFull ? 'true' : 'false');
+        btn.title = isFull ? 'Zur Kompaktansicht wechseln' : 'Zur Vollansicht wechseln';
+    }
+    if (persist) {
+        try {
+            localStorage.setItem(LAYOUT_MODE_KEY, next);
+        } catch (err) {
+            console.debug('Layout-Modus konnte nicht gespeichert werden:', err);
+        }
+    }
+}
+
+function toggleLayoutMode(force) {
+    const target = typeof force === 'string' ? force : (layoutMode === 'full' ? 'compact' : 'full');
+    applyLayoutMode(target);
 }
 
 function generateId(prefix = 'id') {
@@ -5015,6 +5059,11 @@ async function exportToPDF() {
             return;
         }
 
+        const previousLayoutMode = layoutMode;
+        if (previousLayoutMode !== 'full') {
+            applyLayoutMode('full', { persist: false });
+        }
+
         const prevWidth = element.style.width;
         element.style.width = '100%';
 
@@ -5103,6 +5152,9 @@ async function exportToPDF() {
                 if (typeof scrollLeft === 'number') el.scrollLeft = scrollLeft;
             });
             element.style.width = prevWidth || '';
+            if (previousLayoutMode !== 'full') {
+                applyLayoutMode(previousLayoutMode, { persist: false });
+            }
         }
     });
 }
@@ -5536,6 +5588,14 @@ window.onload = function() {
     }
     updateVersionSelect();
     updateProjectSelect();
+    let storedLayout = 'compact';
+    try {
+        const saved = localStorage.getItem(LAYOUT_MODE_KEY);
+        if (saved === 'full') storedLayout = 'full';
+    } catch (err) {
+        console.debug('Layout-Modus konnte nicht gelesen werden:', err);
+    }
+    applyLayoutMode(storedLayout, { persist: false });
     columnSettings = normalizeColumnSettings(loadColumnSettings());
     saveColumnSettings(columnSettings);
     applyColumnSettings(columnSettings);

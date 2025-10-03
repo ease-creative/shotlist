@@ -1977,7 +1977,6 @@
             <div class="export-buttons">
                 <button class="btn btn-success" onclick="exportToExcel()">Als Excel exportieren</button>
                 <button class="btn btn-success" onclick="exportToPDF()">Als PDF exportieren</button>
-                <button class="btn" onclick="printShotlist()">Drucken</button>
             </div>
         </div>
     </div>
@@ -2015,6 +2014,7 @@
 
     <!-- Neuer Script-Block -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script>
 
 // Shotlist Funktionen
@@ -4982,29 +4982,38 @@ function exportToExcel() {
 function runWithPreview(action) {
     const wasPreview = isPreviewMode;
     if (!wasPreview) togglePreviewMode(true);
-    let restored = false;
-    let fallbackTimeout;
     const restore = () => {
-        if (restored) return;
-        restored = true;
-        window.removeEventListener('afterprint', restore);
-        if (fallbackTimeout) {
-            clearTimeout(fallbackTimeout);
-            fallbackTimeout = null;
-        }
         if (!wasPreview) togglePreviewMode(false);
     };
-    window.addEventListener('afterprint', restore);
-    fallbackTimeout = setTimeout(restore, 2500);
-    action();
+    try {
+        const result = action();
+        if (result && typeof result.then === 'function') {
+            return result.finally(restore);
+        }
+        restore();
+        return result;
+    } catch (err) {
+        console.error(err);
+        restore();
+        throw err;
+    }
+}
+
+function downloadShotlistAsPDF() {
+    const element = document.querySelector('.container');
+    if (!element) return Promise.resolve();
+    const opt = {
+        margin: 0,
+        filename: 'shotlist.pdf',
+        image: { type: 'jpeg', quality: 1 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'px', format: 'a4', orientation: 'landscape' }
+    };
+    return html2pdf().set(opt).from(element).save();
 }
 
 function exportToPDF() {
-    runWithPreview(() => triggerPrint());
-}
-
-function printShotlist() {
-    runWithPreview(() => triggerPrint());
+    return runWithPreview(() => downloadShotlistAsPDF());
 }
 
 function duplicateRow(btn) {

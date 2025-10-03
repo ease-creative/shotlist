@@ -5594,6 +5594,8 @@ function joinWithSceneSeparators(labels) {
             background: white;
             font-size: 11px;
             color: #212529;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
         .container {
             box-shadow: none;
@@ -5671,8 +5673,9 @@ function joinWithSceneSeparators(labels) {
         }
         .shotlist-table th,
         .shotlist-table td {
-            padding: 8px 10px;
+            padding: 10px 12px;
             font-size: 11px;
+            line-height: 1.4;
         }
         .shotlist-table tbody tr.shot-row:nth-of-type(odd) td {
             background: #ffffff;
@@ -5681,20 +5684,24 @@ function joinWithSceneSeparators(labels) {
             background: #f8f9fa;
         }
         .pause-row td {
-            background: #fff3cd !important;
-            color: #7a5c00 !important;
+            background: #f2f2f2 !important;
+            color: #2f2f2f !important;
+            border-left: 3px solid #b3b3b3;
         }
         .wrap-row td {
-            background: #ede7f6 !important;
-            color: #4b3c8a !important;
+            background: #e6e6e6 !important;
+            color: #2a2a2a !important;
+            border-left: 3px solid #9e9e9e;
         }
         .start-row td {
-            background: #d1ecf1 !important;
-            color: #0b6174 !important;
+            background: #f0f0f0 !important;
+            color: #2a2a2a !important;
+            border-left: 3px solid #bfbfbf;
         }
         .umbau-row td {
-            background: #f8d7c1 !important;
-            color: #7f3d09 !important;
+            background: #ededed !important;
+            color: #2a2a2a !important;
+            border-left: 3px solid #b0b0b0;
         }
         body.printing-active .shotlist-table select,
         body.printing-active .shotlist-table textarea,
@@ -5725,15 +5732,16 @@ function joinWithSceneSeparators(labels) {
         }
         .scene-summary-table td {
             border: 1px solid rgba(0,0,0,0.14);
-            padding: 6px 8px;
+            padding: 8px 10px;
             color: #212529;
+            line-height: 1.35;
         }
         .scene-summary-row-scene td {
-            background: #f1f3f5 !important;
+            background: #f1f1f1 !important;
             font-weight: 700;
         }
         .scene-summary-row-shotgroup td {
-            background: #f8f9fa !important;
+            background: #f8f8f8 !important;
             font-weight: 500;
             color: #343a40;
         }
@@ -5741,16 +5749,16 @@ function joinWithSceneSeparators(labels) {
             color: #495057;
         }
         .scene-summary-row-start td {
-            background: #d1ecf1 !important;
+            background: #f0f0f0 !important;
         }
         .scene-summary-row-pause td {
-            background: #fff3cd !important;
+            background: #f2f2f2 !important;
         }
         .scene-summary-row-wrap td {
-            background: #ede7f6 !important;
+            background: #e6e6e6 !important;
         }
         .scene-summary-row-umbau td {
-            background: #f8d7c1 !important;
+            background: #ededed !important;
         }
     </style>
 </body>

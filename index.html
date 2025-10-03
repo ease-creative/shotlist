@@ -2042,6 +2042,35 @@ function cloneAppState(value) {
 }
 
 let appState = createEmptyAppState();
+const LOCAL_APP_STATE_KEY = 'shotlist-app-state';
+
+function saveAppStateLocally(state = appState) {
+    try {
+        const payload = cloneAppState(state);
+        localStorage.setItem(LOCAL_APP_STATE_KEY, JSON.stringify(payload));
+    } catch (err) {
+        console.debug('Lokales Speichern nicht möglich:', err);
+    }
+}
+
+function loadAppStateFromLocalStorage() {
+    try {
+        const raw = localStorage.getItem(LOCAL_APP_STATE_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+    } catch (err) {
+        console.debug('Lokales Laden nicht möglich:', err);
+        return null;
+    }
+}
+
+function clearLocalAppState() {
+    try {
+        localStorage.removeItem(LOCAL_APP_STATE_KEY);
+    } catch (err) {
+        console.debug('Lokales Löschen nicht möglich:', err);
+    }
+}
 
 function generateId(prefix = 'id') {
     return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -2199,6 +2228,7 @@ function recordCurrentSnapshot() {
     } else {
         updateDraftSnapshot(snapshot, formFields);
     }
+    saveAppStateLocally();
     return { snapshot, formFields };
 }
 
@@ -2729,6 +2759,7 @@ function applyFormFields(values) {
 function getAppStatePayload() {
     const snapshotInfo = recordCurrentSnapshot();
     appState.lastSavedAt = new Date().toISOString();
+    saveAppStateLocally();
     return cloneAppState(appState);
 }
 
@@ -2796,13 +2827,21 @@ async function ladenDaten(options = {}) {
         } catch (err) {
             data = null;
         }
+        let incomingState;
         if (data && data.appState) {
-            setAppState(data.appState);
+            incomingState = ensureAppState(data.appState);
         } else if (data) {
-            setAppState(data);
+            incomingState = ensureAppState(data);
         } else {
-            setAppState(createEmptyAppState());
+            incomingState = createEmptyAppState();
         }
+        const localStamp = appState && appState.lastSavedAt ? Date.parse(appState.lastSavedAt) : 0;
+        const incomingStamp = incomingState && incomingState.lastSavedAt ? Date.parse(incomingState.lastSavedAt) : 0;
+        if (localStamp && incomingStamp && localStamp > incomingStamp) {
+            console.debug('Serverdaten älter als lokale Daten – lokale Version wird behalten.');
+            return data;
+        }
+        setAppState(incomingState);
         hydrateFromAppState();
         if (!silent) {
             showNotification('Daten geladen');
@@ -2843,6 +2882,7 @@ function hydrateFromAppState() {
     }
     updateProjectSelect();
     updateVersionSelect();
+    saveAppStateLocally();
 }
 
 function getActiveProjectId() {
@@ -5339,7 +5379,15 @@ function showNotification(msg, error=false) {
 
 // Initialisierung
 window.onload = function() {
-    const hasStoredState = loadState();
+    let hasStoredState = false;
+    const localState = loadAppStateFromLocalStorage();
+    if (localState) {
+        setAppState(localState);
+        hydrateFromAppState();
+        hasStoredState = true;
+    } else {
+        hasStoredState = loadState();
+    }
     updateVersionSelect();
     updateProjectSelect();
     columnSettings = normalizeColumnSettings(loadColumnSettings());
@@ -5585,10 +5633,8 @@ function joinWithSceneSeparators(labels) {
         .shotlist-table {
             width: 100%;
             font-size: 11px;
-        }
-        .shotlist-table th,
-        .shotlist-table td {
-            padding: 6px 5px;
+            table-layout: auto;
+            border-collapse: collapse;
         }
         .shotlist-table tr {
             page-break-inside: avoid;
@@ -5611,12 +5657,8 @@ function joinWithSceneSeparators(labels) {
         body.printing-active .shotlist-table th {
             line-height: 1.25;
         }
-        .shotlist-table {
-            table-layout: fixed;
-            border-collapse: collapse;
-        }
         .shotlist-table thead th {
-            background: #e9ecef !important;
+            background: #dee2e6 !important;
             color: #212529 !important;
             font-weight: 700;
             border: 1px solid rgba(0,0,0,0.2);
@@ -5629,8 +5671,30 @@ function joinWithSceneSeparators(labels) {
         }
         .shotlist-table th,
         .shotlist-table td {
-            padding: 4px 3px;
+            padding: 8px 10px;
             font-size: 11px;
+        }
+        .shotlist-table tbody tr.shot-row:nth-of-type(odd) td {
+            background: #ffffff;
+        }
+        .shotlist-table tbody tr.shot-row:nth-of-type(even) td {
+            background: #f8f9fa;
+        }
+        .pause-row td {
+            background: #fff3cd !important;
+            color: #7a5c00 !important;
+        }
+        .wrap-row td {
+            background: #ede7f6 !important;
+            color: #4b3c8a !important;
+        }
+        .start-row td {
+            background: #d1ecf1 !important;
+            color: #0b6174 !important;
+        }
+        .umbau-row td {
+            background: #f8d7c1 !important;
+            color: #7f3d09 !important;
         }
         body.printing-active .shotlist-table select,
         body.printing-active .shotlist-table textarea,
@@ -5643,6 +5707,50 @@ function joinWithSceneSeparators(labels) {
         }
         body.printing-active .print-field-value.print-field-empty {
             color: #adb5bd;
+        }
+        .scene-summary {
+            background: #ffffff;
+            border: 1px solid #ced4da;
+            padding: 16px;
+        }
+        .scene-summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: auto;
+        }
+        .scene-summary-table thead th {
+            background: #dee2e6 !important;
+            color: #212529 !important;
+            border: 1px solid rgba(0,0,0,0.2);
+        }
+        .scene-summary-table td {
+            border: 1px solid rgba(0,0,0,0.14);
+            padding: 6px 8px;
+            color: #212529;
+        }
+        .scene-summary-row-scene td {
+            background: #f1f3f5 !important;
+            font-weight: 700;
+        }
+        .scene-summary-row-shotgroup td {
+            background: #f8f9fa !important;
+            font-weight: 500;
+            color: #343a40;
+        }
+        .scene-summary-row-shotgroup td:first-child {
+            color: #495057;
+        }
+        .scene-summary-row-start td {
+            background: #d1ecf1 !important;
+        }
+        .scene-summary-row-pause td {
+            background: #fff3cd !important;
+        }
+        .scene-summary-row-wrap td {
+            background: #ede7f6 !important;
+        }
+        .scene-summary-row-umbau td {
+            background: #f8d7c1 !important;
         }
     </style>
 </body>

@@ -2849,6 +2849,15 @@ async function ladenDaten(options = {}) {
         return data;
     } catch (err) {
         console.error('Fehler beim Laden der Daten:', err);
+        const fallbackState = loadAppStateFromLocalStorage();
+        if (fallbackState) {
+            setAppState(fallbackState);
+            hydrateFromAppState();
+            if (!silent) {
+                showNotification('Lokale Version geladen');
+            }
+            return fallbackState;
+        }
         if (!silent) {
             showNotification('Laden fehlgeschlagen', true);
         }
@@ -2926,6 +2935,7 @@ async function saveProject() {
     project.name = name;
     setCurrentProjectId(project.id);
     recordCurrentSnapshot();
+    showNotification('Lokale Version gespeichert');
     setCurrentVersionId(project.activeVersionId || '');
     updateProjectSelect();
     let serverError = null;
@@ -5385,6 +5395,7 @@ window.onload = function() {
         setAppState(localState);
         hydrateFromAppState();
         hasStoredState = true;
+        showNotification('Lokale Version geladen');
     } else {
         hasStoredState = loadState();
     }
@@ -5592,10 +5603,11 @@ function joinWithSceneSeparators(labels) {
         }
         body {
             background: white;
-            font-size: 11px;
-            color: #212529;
+            font-size: 12px;
+            color: #1f1f1f;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+            font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
         }
         .container {
             box-shadow: none;
@@ -5631,10 +5643,11 @@ function joinWithSceneSeparators(labels) {
         .table-container {
             overflow: visible;
             max-height: none;
+            margin: 0;
         }
         .shotlist-table {
             width: 100%;
-            font-size: 11px;
+            font-size: 12px;
             table-layout: auto;
             border-collapse: collapse;
         }
@@ -5664,44 +5677,49 @@ function joinWithSceneSeparators(labels) {
             color: #212529 !important;
             font-weight: 700;
             border: 1px solid rgba(0,0,0,0.2);
+            padding: 12px 14px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
         }
         .shotlist-table tbody td {
-            border: 1px solid rgba(0,0,0,0.14);
-            vertical-align: top;
-            word-break: break-word;
-            white-space: normal;
+            border: 1px solid rgba(0,0,0,0.2);
+            vertical-align: middle;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
         }
         .shotlist-table th,
         .shotlist-table td {
-            padding: 10px 12px;
-            font-size: 11px;
-            line-height: 1.4;
+            padding: 12px 14px;
+            font-size: 12px;
+            line-height: 1.45;
         }
         .shotlist-table tbody tr.shot-row:nth-of-type(odd) td {
             background: #ffffff;
         }
         .shotlist-table tbody tr.shot-row:nth-of-type(even) td {
-            background: #f8f9fa;
+            background: #f4f4f4;
         }
         .pause-row td {
-            background: #f2f2f2 !important;
-            color: #2f2f2f !important;
-            border-left: 3px solid #b3b3b3;
+            background: #ffec99 !important;
+            color: #5c3d00 !important;
+            border-left: 4px solid #ffca2c;
         }
         .wrap-row td {
-            background: #e6e6e6 !important;
-            color: #2a2a2a !important;
-            border-left: 3px solid #9e9e9e;
+            background: #6f42c1 !important;
+            color: #ffffff !important;
+            border-left: 4px solid #4b2c85;
         }
         .start-row td {
-            background: #f0f0f0 !important;
-            color: #2a2a2a !important;
-            border-left: 3px solid #bfbfbf;
+            background: #198754 !important;
+            color: #ffffff !important;
+            border-left: 4px solid #0f5132;
         }
         .umbau-row td {
-            background: #ededed !important;
-            color: #2a2a2a !important;
-            border-left: 3px solid #b0b0b0;
+            background: #795548 !important;
+            color: #ffffff !important;
+            border-left: 4px solid #4e342e;
         }
         body.printing-active .shotlist-table select,
         body.printing-active .shotlist-table textarea,
@@ -5717,8 +5735,9 @@ function joinWithSceneSeparators(labels) {
         }
         .scene-summary {
             background: #ffffff;
-            border: 1px solid #ced4da;
-            padding: 16px;
+            border: 1px solid #c9ccd1;
+            padding: 18px;
+            page-break-inside: avoid;
         }
         .scene-summary-table {
             width: 100%;
@@ -5729,15 +5748,22 @@ function joinWithSceneSeparators(labels) {
             background: #dee2e6 !important;
             color: #212529 !important;
             border: 1px solid rgba(0,0,0,0.2);
+            padding: 12px 14px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
         .scene-summary-table td {
-            border: 1px solid rgba(0,0,0,0.14);
-            padding: 8px 10px;
+            border: 1px solid rgba(0,0,0,0.2);
+            padding: 12px 14px;
             color: #212529;
-            line-height: 1.35;
+            line-height: 1.45;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .scene-summary-row-scene td {
-            background: #f1f1f1 !important;
+            background: #f5f5f5 !important;
             font-weight: 700;
         }
         .scene-summary-row-shotgroup td {
@@ -5749,16 +5775,20 @@ function joinWithSceneSeparators(labels) {
             color: #495057;
         }
         .scene-summary-row-start td {
-            background: #f0f0f0 !important;
+            background: #198754 !important;
+            color: #ffffff !important;
         }
         .scene-summary-row-pause td {
-            background: #f2f2f2 !important;
+            background: #ffec99 !important;
+            color: #5c3d00 !important;
         }
         .scene-summary-row-wrap td {
-            background: #e6e6e6 !important;
+            background: #6f42c1 !important;
+            color: #ffffff !important;
         }
         .scene-summary-row-umbau td {
-            background: #ededed !important;
+            background: #795548 !important;
+            color: #ffffff !important;
         }
     </style>
 </body>

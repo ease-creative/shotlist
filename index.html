@@ -5602,12 +5602,12 @@ function joinWithSceneSeparators(labels) {
             margin: 12mm;
         }
         body {
-            background: white;
+            background: #ffffff;
             font-size: 12px;
             color: #1f1f1f;
+            font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
-            font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
         }
         .container {
             box-shadow: none;
@@ -5644,6 +5644,7 @@ function joinWithSceneSeparators(labels) {
             overflow: visible;
             max-height: none;
             margin: 0;
+            padding: 0;
         }
         .shotlist-table {
             width: 100%;
@@ -5683,11 +5684,11 @@ function joinWithSceneSeparators(labels) {
             letter-spacing: 0.02em;
         }
         .shotlist-table tbody td {
-            border: 1px solid rgba(0,0,0,0.2);
-            vertical-align: middle;
-            white-space: nowrap;
-            text-overflow: ellipsis;
-            overflow: hidden;
+            border: 1px solid rgba(0,0,0,0.16);
+            vertical-align: top;
+            white-space: normal;
+            overflow: visible;
+            word-break: break-word;
         }
         .shotlist-table th,
         .shotlist-table td {
@@ -5699,27 +5700,23 @@ function joinWithSceneSeparators(labels) {
             background: #ffffff;
         }
         .shotlist-table tbody tr.shot-row:nth-of-type(even) td {
-            background: #f4f4f4;
+            background: #f6f6f6;
         }
         .pause-row td {
-            background: #ffec99 !important;
-            color: #5c3d00 !important;
-            border-left: 4px solid #ffca2c;
+            background: #fff7d1 !important;
+            color: #4f3b06 !important;
         }
         .wrap-row td {
-            background: #6f42c1 !important;
-            color: #ffffff !important;
-            border-left: 4px solid #4b2c85;
+            background: #e9ddff !important;
+            color: #2f1f55 !important;
         }
         .start-row td {
-            background: #198754 !important;
-            color: #ffffff !important;
-            border-left: 4px solid #0f5132;
+            background: #d6f2e1 !important;
+            color: #145a32 !important;
         }
         .umbau-row td {
-            background: #795548 !important;
-            color: #ffffff !important;
-            border-left: 4px solid #4e342e;
+            background: #f1e2d9 !important;
+            color: #5a3521 !important;
         }
         body.printing-active .shotlist-table select,
         body.printing-active .shotlist-table textarea,
@@ -5754,20 +5751,20 @@ function joinWithSceneSeparators(labels) {
             letter-spacing: 0.03em;
         }
         .scene-summary-table td {
-            border: 1px solid rgba(0,0,0,0.2);
+            border: 1px solid rgba(0,0,0,0.16);
             padding: 12px 14px;
             color: #212529;
             line-height: 1.45;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
+            overflow: visible;
+            word-break: break-word;
         }
         .scene-summary-row-scene td {
-            background: #f5f5f5 !important;
+            background: #f4f4f4 !important;
             font-weight: 700;
         }
         .scene-summary-row-shotgroup td {
-            background: #f8f8f8 !important;
+            background: #f7f7f7 !important;
             font-weight: 500;
             color: #343a40;
         }
@@ -5775,20 +5772,20 @@ function joinWithSceneSeparators(labels) {
             color: #495057;
         }
         .scene-summary-row-start td {
-            background: #198754 !important;
-            color: #ffffff !important;
+            background: #d6f2e1 !important;
+            color: #145a32 !important;
         }
         .scene-summary-row-pause td {
-            background: #ffec99 !important;
-            color: #5c3d00 !important;
+            background: #fff7d1 !important;
+            color: #4f3b06 !important;
         }
         .scene-summary-row-wrap td {
-            background: #6f42c1 !important;
-            color: #ffffff !important;
+            background: #e9ddff !important;
+            color: #2f1f55 !important;
         }
         .scene-summary-row-umbau td {
-            background: #795548 !important;
-            color: #ffffff !important;
+            background: #f1e2d9 !important;
+            color: #5a3521 !important;
         }
     </style>
 </body>

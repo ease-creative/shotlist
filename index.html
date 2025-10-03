@@ -3264,8 +3264,9 @@ function applyPreviewMode(active) {
     }
 }
 
-function togglePreviewMode() {
-    isPreviewMode = !isPreviewMode;
+function togglePreviewMode(force) {
+    const desired = typeof force === 'boolean' ? force : !isPreviewMode;
+    isPreviewMode = !!desired;
     applyPreviewMode(isPreviewMode);
 }
 
@@ -4978,12 +4979,32 @@ function exportToExcel() {
     XLSX.writeFile(wb, 'shotlist.xlsx');
 }
 
+function runWithPreview(action) {
+    const wasPreview = isPreviewMode;
+    if (!wasPreview) togglePreviewMode(true);
+    let restored = false;
+    let fallbackTimeout;
+    const restore = () => {
+        if (restored) return;
+        restored = true;
+        window.removeEventListener('afterprint', restore);
+        if (fallbackTimeout) {
+            clearTimeout(fallbackTimeout);
+            fallbackTimeout = null;
+        }
+        if (!wasPreview) togglePreviewMode(false);
+    };
+    window.addEventListener('afterprint', restore);
+    fallbackTimeout = setTimeout(restore, 2500);
+    action();
+}
+
 function exportToPDF() {
-    triggerPrint();
+    runWithPreview(() => triggerPrint());
 }
 
 function printShotlist() {
-    triggerPrint();
+    runWithPreview(() => triggerPrint());
 }
 
 function duplicateRow(btn) {
@@ -5599,7 +5620,7 @@ function joinWithSceneSeparators(labels) {
     <style media="print">
         @page {
             size: A4 landscape;
-            margin: 12mm;
+            margin: 15mm;
         }
         body {
             background: #ffffff;
@@ -5685,10 +5706,10 @@ function joinWithSceneSeparators(labels) {
         }
         .shotlist-table tbody td {
             border: 1px solid rgba(0,0,0,0.16);
-            vertical-align: top;
-            white-space: normal;
-            overflow: visible;
-            word-break: break-word;
+            vertical-align: middle;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .shotlist-table th,
         .shotlist-table td {
@@ -5703,20 +5724,24 @@ function joinWithSceneSeparators(labels) {
             background: #f6f6f6;
         }
         .pause-row td {
-            background: #fff7d1 !important;
+            background: #ffe082 !important;
             color: #4f3b06 !important;
+            border-left: 4px solid #dcae35;
         }
         .wrap-row td {
-            background: #e9ddff !important;
-            color: #2f1f55 !important;
+            background: #5b3a99 !important;
+            color: #ffffff !important;
+            border-left: 4px solid #3c2766;
         }
         .start-row td {
-            background: #d6f2e1 !important;
-            color: #145a32 !important;
+            background: #1b6b42 !important;
+            color: #ffffff !important;
+            border-left: 4px solid #10442a;
         }
         .umbau-row td {
-            background: #f1e2d9 !important;
-            color: #5a3521 !important;
+            background: #70452a !important;
+            color: #ffffff !important;
+            border-left: 4px solid #4a2f1c;
         }
         body.printing-active .shotlist-table select,
         body.printing-active .shotlist-table textarea,
@@ -5755,9 +5780,9 @@ function joinWithSceneSeparators(labels) {
             padding: 12px 14px;
             color: #212529;
             line-height: 1.45;
-            white-space: normal;
-            overflow: visible;
-            word-break: break-word;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .scene-summary-row-scene td {
             background: #f4f4f4 !important;
@@ -5772,20 +5797,20 @@ function joinWithSceneSeparators(labels) {
             color: #495057;
         }
         .scene-summary-row-start td {
-            background: #d6f2e1 !important;
-            color: #145a32 !important;
+            background: #1b6b42 !important;
+            color: #ffffff !important;
         }
         .scene-summary-row-pause td {
-            background: #fff7d1 !important;
+            background: #ffe082 !important;
             color: #4f3b06 !important;
         }
         .scene-summary-row-wrap td {
-            background: #e9ddff !important;
-            color: #2f1f55 !important;
+            background: #5b3a99 !important;
+            color: #ffffff !important;
         }
         .scene-summary-row-umbau td {
-            background: #f1e2d9 !important;
-            color: #5a3521 !important;
+            background: #70452a !important;
+            color: #ffffff !important;
         }
     </style>
 </body>

@@ -172,7 +172,10 @@
         .preview-toggle-btn:hover,
         body.preview-mode #previewToggleBtn,
         .layout-toggle-btn:hover,
-        #layoutToggleBtn[aria-pressed="true"] {
+        #layoutToggleBtn[aria-pressed="true"],
+        #layoutToggleBtnBottom[aria-pressed="true"],
+        #previewToggleBtnBottom.preview-toggle-btn:hover,
+        body.preview-mode #previewToggleBtnBottom {
             background: rgba(31,122,140,0.35);
             border-color: rgba(31,122,140,0.6);
             color: var(--color-text-primary);
@@ -911,13 +914,27 @@
             display: none !important;
         }
 
-        body.preview-mode button:not(#previewToggleBtn):not(#sceneSummaryToggle) {
+        body.preview-mode button:not(.preview-toggle-btn):not(.layout-toggle-btn):not(#sceneSummaryToggle) {
             display: none !important;
         }
 
-        body.preview-mode #layoutToggleBtn,
+        body.preview-mode .preview-toggle-btn,
+        body.preview-mode .layout-toggle-btn,
         body.preview-mode .export-buttons .btn {
             display: inline-flex !important;
+        }
+
+        .layout-toggle-inline {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin: 24px 0 12px;
+        }
+
+        .layout-toggle-inline .layout-toggle-btn,
+        .layout-toggle-inline .preview-toggle-btn {
+            display: inline-flex;
+            margin-top: 0;
         }
 
         body.preview-mode [data-col-key="action"],
@@ -1986,6 +2003,11 @@
             <div class="scene-summary-body empty">Keine Szenen erfasst.</div>
         </section>
 
+        <div class="layout-toggle-inline">
+            <button type="button" id="layoutToggleBtnBottom" class="layout-toggle-btn" onclick="toggleLayoutMode()" aria-pressed="false" title="Zur Vollansicht wechseln">Vollansicht</button>
+            <button type="button" id="previewToggleBtnBottom" class="preview-toggle-btn" onclick="togglePreviewMode()" aria-pressed="false" title="Preview-Modus umschalten">Preview</button>
+        </div>
+
         <div id="printReferencePage" class="print-only print-reference-page">
             <h2 class="print-heading">Referenzbilder</h2>
             <div id="printReferenceList" class="print-reference-list"></div>
@@ -2100,13 +2122,12 @@ function applyLayoutMode(mode, { persist = true } = {}) {
     layoutMode = next;
     container.classList.remove('compact-mode', 'full-mode');
     container.classList.add(`${next}-mode`);
-    const btn = document.getElementById('layoutToggleBtn');
-    if (btn) {
-        const isFull = next === 'full';
+    const isFull = next === 'full';
+    document.querySelectorAll('.layout-toggle-btn').forEach(btn => {
         btn.textContent = isFull ? 'Kompaktansicht' : 'Vollansicht';
         btn.setAttribute('aria-pressed', isFull ? 'true' : 'false');
         btn.title = isFull ? 'Zur Kompaktansicht wechseln' : 'Zur Vollansicht wechseln';
-    }
+    });
     if (persist) {
         try {
             localStorage.setItem(LAYOUT_MODE_KEY, next);
@@ -3305,12 +3326,11 @@ function applyPreviewMode(active) {
         restoreRowDraggingAfterPreview();
     }
     body.classList.toggle('preview-mode', !!active);
-    const btn = document.getElementById('previewToggleBtn');
-    if (btn) {
+    document.querySelectorAll('.preview-toggle-btn').forEach(btn => {
         btn.textContent = active ? 'Edit' : 'Preview';
         btn.setAttribute('aria-pressed', active ? 'true' : 'false');
         btn.classList.toggle('active', !!active);
-    }
+    });
 }
 
 function togglePreviewMode(force) {

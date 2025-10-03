@@ -2014,7 +2014,8 @@
 
     <!-- Neuer Script-Block -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script>
 
 // Shotlist Funktionen
@@ -4979,42 +4980,117 @@ function exportToExcel() {
     XLSX.writeFile(wb, 'shotlist.xlsx');
 }
 
-function runWithPreview(action) {
-    const wasPreview = isPreviewMode;
-    if (!wasPreview) togglePreviewMode(true);
-    const restore = () => {
-        if (!wasPreview) togglePreviewMode(false);
-    };
-    try {
-        const result = action();
-        if (result && typeof result.then === 'function') {
-            return result.finally(restore);
+async function runInPreviewOnce(taskFn) {
+    const wasPreview = document.body.classList.contains('preview-mode');
+    if (!wasPreview) {
+        try {
+            if (typeof togglePreviewMode === 'function') {
+                togglePreviewMode(true);
+            } else {
+                document.body.classList.add('preview-mode');
+            }
+            await new Promise(r => requestAnimationFrame(r));
+        } catch (err) {
+            console.debug('Preview-Umschaltung fehlgeschlagen:', err);
         }
-        restore();
-        return result;
-    } catch (err) {
-        console.error(err);
-        restore();
-        throw err;
+    }
+    try {
+        await taskFn();
+    } finally {
+        if (!wasPreview) {
+            if (typeof togglePreviewMode === 'function') {
+                togglePreviewMode(false);
+            } else {
+                document.body.classList.remove('preview-mode');
+            }
+        }
     }
 }
 
-function downloadShotlistAsPDF() {
-    const element = document.querySelector('.container');
-    if (!element) return Promise.resolve();
-    const opt = {
-        margin: 0,
-        filename: 'shotlist.pdf',
-        image: { type: 'jpeg', quality: 1 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'px', format: 'a4', orientation: 'landscape' }
-    };
-    return html2pdf().set(opt).from(element).save();
+async function exportToPDF() {
+    await runInPreviewOnce(async () => {
+        const element = document.querySelector('.container');
+        if (!element) {
+            alert('Export-Element nicht gefunden.');
+            return;
+        }
+
+        const prevWidth = element.style.width;
+        element.style.width = '100%';
+
+        const hideSelectors = ['.export-section', '#columnOverlay'];
+        const hidden = [];
+        hideSelectors.forEach(sel => {
+            document.querySelectorAll(sel).forEach(node => {
+                hidden.push([node, node.style.display]);
+                node.style.display = 'none';
+            });
+        });
+
+        try {
+            const canvas = await html2canvas(element, {
+                backgroundColor: '#ffffff',
+                useCORS: true,
+                scale: 2,
+                windowWidth: element.scrollWidth,
+                windowHeight: element.scrollHeight,
+                scrollX: 0,
+                scrollY: -window.scrollY
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'landscape' });
+            const margin = 24;
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const usableWidth = pageWidth - margin * 2;
+            const usableHeight = pageHeight - margin * 2;
+            const imgWidth = usableWidth;
+            const imgHeight = canvas.height * (imgWidth / canvas.width);
+
+            let heightLeft = imgHeight;
+            let position = margin;
+
+            pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight, undefined, 'FAST');
+            heightLeft -= usableHeight;
+
+            while (heightLeft > 0) {
+                pdf.addPage();
+                position = margin - (imgHeight - heightLeft);
+                pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight, undefined, 'FAST');
+                heightLeft -= usableHeight;
+            }
+
+            const prod = (document.getElementById('productionTitle')?.value || 'Shotlist').trim();
+            const date = (document.getElementById('date')?.value || '').trim();
+            const fileName = `${prod || 'Shotlist'}${date ? ' – ' + date : ''}.pdf`;
+            pdf.save(fileName);
+        } catch (err) {
+            console.error('PDF-Export fehlgeschlagen:', err);
+            alert('PDF-Export fehlgeschlagen. Details in der Konsole.');
+        } finally {
+            hidden.forEach(([node, display]) => {
+                node.style.display = display;
+            });
+            element.style.width = prevWidth || '';
+        }
+    });
 }
 
-function exportToPDF() {
-    return runWithPreview(() => downloadShotlistAsPDF());
-}
+// Buttons neu verdrahten & fehlerhaften Druck-Button entfernen
+(function wireExportButtons() {
+    const pdfBtn = document.querySelector('.export-buttons .btn.btn-success[onclick*="exportToPDF"]')
+        || document.querySelector('.export-buttons button[onclick*="exportToPDF"]');
+    if (pdfBtn) {
+        pdfBtn.onclick = exportToPDF;
+    }
+    const printBtn = Array.from(document.querySelectorAll('.export-buttons .btn'))
+        .find(btn => (btn.textContent || '').toLowerCase().includes('drucken'));
+    if (printBtn) {
+        printBtn.remove();
+    }
+})();
 
 function duplicateRow(btn) {
     const row = btn.closest('tr');
@@ -5624,7 +5700,25 @@ function joinWithSceneSeparators(labels) {
     }
     return parts.join('');
 }
-    </script>
+</script>
+
+    <style>
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        @media print {
+            html, body {
+                background: #ffffff !important;
+            }
+            .container {
+                box-shadow: none !important;
+            }
+            .export-section {
+                display: none !important;
+            }
+        }
+    </style>
     
     <style media="print">
         @page {

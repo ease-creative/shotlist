@@ -915,6 +915,11 @@
             display: none !important;
         }
 
+        body.preview-mode #layoutToggleBtn,
+        body.preview-mode .export-buttons .btn {
+            display: inline-flex !important;
+        }
+
         body.preview-mode [data-col-key="action"],
         body.preview-mode th[data-col-key="action"] {
             display: none !important;
@@ -1987,7 +1992,6 @@
         </div>
 
         <div class="export-section">
-            <h3>Export & Speichern</h3>
             <div class="export-buttons">
                 <button class="btn btn-success" onclick="exportToExcel()">Als Excel exportieren</button>
                 <button class="btn btn-success" onclick="exportToPDF()">Als PDF exportieren</button>
@@ -2028,8 +2032,8 @@
 
     <!-- Neuer Script-Block -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
     <script>
 
 // Shotlist Funktionen
@@ -5051,111 +5055,152 @@ async function runInPreviewOnce(taskFn) {
     }
 }
 
+const PDF_ROW_STYLES = {
+    shotOdd: { fill: [30, 30, 30], text: [245, 245, 245] },
+    shotEven: { fill: [21, 21, 21], text: [245, 245, 245] },
+    pause: { fill: [156, 133, 0], text: [255, 255, 255] },
+    wrap: { fill: [90, 59, 160], text: [255, 255, 255] },
+    start: { fill: [14, 108, 140], text: [255, 255, 255] },
+    umbau: { fill: [180, 95, 6], text: [255, 255, 255] },
+    other: { fill: [45, 45, 45], text: [245, 245, 245] }
+};
+
+const PDF_COLUMN_WIDTHS = {
+    scene: 60,
+    shot: 60,
+    type: 90,
+    movement: 100,
+    gear: 120,
+    location: 140,
+    extint: 70,
+    sound: 80,
+    description: 220,
+    cast: 180,
+    reference: 110,
+    setup: 70,
+    shoot: 70,
+    total: 70,
+    time: 100
+};
+
+function extractCellText(cell) {
+    if (!cell) return '';
+    const previewValue = cell.querySelector('.print-field-value');
+    if (previewValue) return previewValue.textContent.trim();
+    const input = cell.querySelector('input, textarea');
+    if (input) return (input.value || '').trim();
+    const select = cell.querySelector('select');
+    if (select) {
+        const option = select.options && select.selectedIndex >= 0 ? select.options[select.selectedIndex] : null;
+        return (option && option.text ? option.text : select.value || '').trim();
+    }
+    return cell.textContent.replace(/\s+/g, ' ').trim();
+}
+
+function collectShotlistTableData() {
+    const table = document.querySelector('.shotlist-table');
+    if (!table) return { headers: [], rows: [] };
+
+    const headerCells = Array.from(table.querySelectorAll('thead th'));
+    const visibleColumns = headerCells
+        .map((th, idx) => ({ th, idx }))
+        .filter(({ th }) => th && th.offsetParent !== null && window.getComputedStyle(th).display !== 'none');
+
+    const headers = visibleColumns.map(({ th }) => {
+        const label = th.textContent.trim();
+        const key = th.dataset.colKey || '';
+        const minWidth = PDF_COLUMN_WIDTHS[key] || null;
+        return { label, key, minWidth };
+    });
+
+    const rows = [];
+    Array.from(table.querySelectorAll('tbody tr')).forEach(tr => {
+        if (window.getComputedStyle(tr).display === 'none') return;
+        const rowType = tr.classList.contains('pause-row') ? 'pause'
+            : tr.classList.contains('wrap-row') ? 'wrap'
+            : tr.classList.contains('start-row') ? 'start'
+            : tr.classList.contains('umbau-row') ? 'umbau'
+            : 'shot';
+        const cells = visibleColumns.map(({ idx }) => extractCellText(tr.cells[idx]));
+        if (cells.every(text => !text)) return;
+        rows.push({ type: rowType, cells });
+    });
+
+    return { headers, rows };
+}
+
 async function exportToPDF() {
     await runInPreviewOnce(async () => {
-        const element = document.querySelector('.container');
-        if (!element) {
-            alert('Export-Element nicht gefunden.');
+        const tableData = collectShotlistTableData();
+        if (!tableData.headers.length || !tableData.rows.length) {
+            alert('Keine Shotlist-Daten für den PDF-Export gefunden.');
             return;
         }
 
-        const previousLayoutMode = layoutMode;
-        if (previousLayoutMode !== 'full') {
-            applyLayoutMode('full', { persist: false });
+        const { jsPDF } = window.jspdf;
+        if (!jsPDF || typeof jsPDF !== 'function' || !jsPDF.prototype || typeof jsPDF.prototype.autoTable !== 'function') {
+            alert('PDF-Export nicht verfügbar (autoTable-Plug-in fehlt).');
+            return;
         }
 
-        const prevWidth = element.style.width;
-        element.style.width = '100%';
+        const margin = 28;
+        const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'landscape' });
 
-        const hideSelectors = ['.export-section', '#columnOverlay'];
-        const hidden = [];
-        hideSelectors.forEach(sel => {
-            document.querySelectorAll(sel).forEach(node => {
-                hidden.push([node, node.style.display]);
-                node.style.display = 'none';
-            });
+        doc.autoTable({
+            head: [tableData.headers.map(h => h.label)],
+            body: tableData.rows.map(row => row.cells),
+            startY: margin,
+            margin: { left: margin, right: margin, top: margin, bottom: margin },
+            styles: {
+                font: 'helvetica',
+                fontSize: 9,
+                cellPadding: { top: 6, right: 6, bottom: 6, left: 6 },
+                textColor: [245, 245, 245],
+                lineColor: [51, 51, 51],
+                lineWidth: 0.5,
+                halign: 'left',
+                valign: 'top',
+                overflow: 'linebreak',
+                fillColor: [30, 30, 30]
+            },
+            headStyles: {
+                fillColor: [47, 47, 47],
+                textColor: [224, 224, 224],
+                fontSize: 9.5,
+                fontStyle: 'bold',
+                halign: 'center'
+            },
+            columnStyles: tableData.headers.reduce((acc, header, index) => {
+                if (header.minWidth) {
+                    acc[index] = { cellWidth: header.minWidth, overflow: 'linebreak' };
+                }
+                return acc;
+            }, {}),
+            willDrawCell(data) {
+                if (data.section !== 'body') return;
+                const rowMeta = tableData.rows[data.row.index];
+                if (!rowMeta) return;
+                const styles = data.cell.styles;
+                if (rowMeta.type === 'shot') {
+                    const palette = data.row.index % 2 === 0 ? PDF_ROW_STYLES.shotEven : PDF_ROW_STYLES.shotOdd;
+                    styles.fillColor = palette.fill;
+                    styles.textColor = palette.text;
+                } else {
+                    const palette = PDF_ROW_STYLES[rowMeta.type] || PDF_ROW_STYLES.other;
+                    styles.fillColor = palette.fill;
+                    styles.textColor = palette.text;
+                }
+            },
+            alternateRowStyles: {
+                fillColor: [21, 21, 21]
+            },
+            theme: 'grid'
         });
 
-        const tableContainers = Array.from(element.querySelectorAll('.table-container'));
-        const containerStates = tableContainers.map(el => ({
-            el,
-            maxHeight: el.style.maxHeight,
-            height: el.style.height,
-            overflow: el.style.overflow,
-            overflowX: el.style.overflowX,
-            overflowY: el.style.overflowY,
-            scrollTop: el.scrollTop,
-            scrollLeft: el.scrollLeft
-        }));
-        tableContainers.forEach(el => {
-            el.style.maxHeight = 'none';
-            el.style.height = 'auto';
-            el.style.overflow = 'visible';
-            el.style.overflowX = 'visible';
-            el.style.overflowY = 'visible';
-        });
-
-        try {
-            const canvas = await html2canvas(element, {
-                backgroundColor: '#ffffff',
-                useCORS: true,
-                scale: 2,
-                windowWidth: element.scrollWidth,
-                windowHeight: element.scrollHeight,
-                scrollX: 0,
-                scrollY: -window.scrollY
-            });
-
-            const imgData = canvas.toDataURL('image/png');
-            const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'landscape' });
-            const margin = 24;
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
-            const usableWidth = pageWidth - margin * 2;
-            const usableHeight = pageHeight - margin * 2;
-            const imgWidth = usableWidth;
-            const imgHeight = canvas.height * (imgWidth / canvas.width);
-
-            let heightLeft = imgHeight;
-            let position = margin;
-
-            pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight, undefined, 'FAST');
-            heightLeft -= usableHeight;
-
-            while (heightLeft > 0) {
-                pdf.addPage();
-                position = margin - (imgHeight - heightLeft);
-                pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight, undefined, 'FAST');
-                heightLeft -= usableHeight;
-            }
-
-            const prod = (document.getElementById('productionTitle')?.value || 'Shotlist').trim();
-            const date = (document.getElementById('date')?.value || '').trim();
-            const fileName = `${prod || 'Shotlist'}${date ? ' – ' + date : ''}.pdf`;
-            pdf.save(fileName);
-        } catch (err) {
-            console.error('PDF-Export fehlgeschlagen:', err);
-            alert('PDF-Export fehlgeschlagen. Details in der Konsole.');
-        } finally {
-            hidden.forEach(([node, display]) => {
-                node.style.display = display;
-            });
-            containerStates.forEach(state => {
-                const { el, maxHeight, height, overflow, overflowX, overflowY, scrollTop, scrollLeft } = state;
-                el.style.maxHeight = maxHeight;
-                el.style.height = height;
-                el.style.overflow = overflow;
-                el.style.overflowX = overflowX;
-                el.style.overflowY = overflowY;
-                if (typeof scrollTop === 'number') el.scrollTop = scrollTop;
-                if (typeof scrollLeft === 'number') el.scrollLeft = scrollLeft;
-            });
-            element.style.width = prevWidth || '';
-            if (previousLayoutMode !== 'full') {
-                applyLayoutMode(previousLayoutMode, { persist: false });
-            }
-        }
+        const prod = (document.getElementById('productionTitle')?.value || 'Shotlist').trim();
+        const date = (document.getElementById('date')?.value || '').trim();
+        const fileName = `${prod || 'Shotlist'}${date ? ' – ' + date : ''}.pdf`;
+        doc.save(fileName);
     });
 }
 

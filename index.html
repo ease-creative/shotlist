@@ -5027,6 +5027,25 @@ async function exportToPDF() {
             });
         });
 
+        const tableContainers = Array.from(element.querySelectorAll('.table-container'));
+        const containerStates = tableContainers.map(el => ({
+            el,
+            maxHeight: el.style.maxHeight,
+            height: el.style.height,
+            overflow: el.style.overflow,
+            overflowX: el.style.overflowX,
+            overflowY: el.style.overflowY,
+            scrollTop: el.scrollTop,
+            scrollLeft: el.scrollLeft
+        }));
+        tableContainers.forEach(el => {
+            el.style.maxHeight = 'none';
+            el.style.height = 'auto';
+            el.style.overflow = 'visible';
+            el.style.overflowX = 'visible';
+            el.style.overflowY = 'visible';
+        });
+
         try {
             const canvas = await html2canvas(element, {
                 backgroundColor: '#ffffff',
@@ -5072,6 +5091,16 @@ async function exportToPDF() {
         } finally {
             hidden.forEach(([node, display]) => {
                 node.style.display = display;
+            });
+            containerStates.forEach(state => {
+                const { el, maxHeight, height, overflow, overflowX, overflowY, scrollTop, scrollLeft } = state;
+                el.style.maxHeight = maxHeight;
+                el.style.height = height;
+                el.style.overflow = overflow;
+                el.style.overflowX = overflowX;
+                el.style.overflowY = overflowY;
+                if (typeof scrollTop === 'number') el.scrollTop = scrollTop;
+                if (typeof scrollLeft === 'number') el.scrollLeft = scrollLeft;
             });
             element.style.width = prevWidth || '';
         }

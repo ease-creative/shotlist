@@ -961,40 +961,24 @@
             word-break: break-word;
         }
 
-        .scene-summary-row-start td {
-            background: linear-gradient(135deg, rgba(14,108,140,0.38) 0%, rgba(14,108,140,0.18) 100%) !important;
-            border-left: 3px solid var(--color-accent-start);
+        .scene-summary-table tbody tr.row--start td,
+        .scene-summary-table tbody tr.row--wrap td {
+            background: #f5f5f5 !important;
+            color: #1f1f1f;
+            font-weight: 500;
         }
 
-        .scene-summary-row-start:hover td {
-            background: linear-gradient(135deg, rgba(14,108,140,0.48) 0%, rgba(14,108,140,0.26) 100%) !important;
+        .scene-summary-table tbody tr.row--pause td {
+            background: #f0f0f0 !important;
+            color: #1f1f1f;
+            font-weight: 500;
+            font-style: italic;
         }
 
-        .scene-summary-row-pause td {
-            background: linear-gradient(135deg, rgba(156,133,0,0.32) 0%, rgba(156,133,0,0.18) 100%) !important;
-            border-left: 3px solid var(--color-accent-pause);
-        }
-
-        .scene-summary-row-pause:hover td {
-            background: linear-gradient(135deg, rgba(156,133,0,0.45) 0%, rgba(156,133,0,0.26) 100%) !important;
-        }
-
-        .scene-summary-row-umbau td {
-            background: linear-gradient(135deg, rgba(180,95,6,0.35) 0%, rgba(180,95,6,0.18) 100%) !important;
-            border-left: 3px solid var(--color-accent-umbau);
-        }
-
-        .scene-summary-row-umbau:hover td {
-            background: linear-gradient(135deg, rgba(180,95,6,0.45) 0%, rgba(180,95,6,0.26) 100%) !important;
-        }
-
-        .scene-summary-row-wrap td {
-            background: linear-gradient(135deg, rgba(90,59,160,0.35) 0%, rgba(90,59,160,0.18) 100%) !important;
-            border-left: 3px solid var(--color-accent-wrap);
-        }
-
-        .scene-summary-row-wrap:hover td {
-            background: linear-gradient(135deg, rgba(90,59,160,0.45) 0%, rgba(90,59,160,0.26) 100%) !important;
+        .scene-summary-table tbody tr.row--umbau td {
+            background: #ececec !important;
+            color: #1f1f1f;
+            font-weight: 500;
         }
 
         .scene-summary-header {
@@ -1343,14 +1327,27 @@
             opacity: 0.7;
         }
         
-        .pause-row {
-            background: linear-gradient(135deg, rgba(156,133,0,0.32) 0%, rgba(156,133,0,0.18) 100%) !important;
-            border-left: 5px solid var(--color-accent-pause) !important;
+        tr[data-row-type] {
+            position: relative;
         }
 
-        .pause-row td {
-            background: transparent !important;
-            font-weight: 600;
+        .shotlist-table tbody tr.row--start td,
+        .shotlist-table tbody tr.row--wrap td {
+            background: rgba(255, 255, 255, 0.06) !important;
+            font-weight: 500;
+            color: var(--color-text-primary);
+        }
+
+        .shotlist-table tbody tr.row--pause td {
+            background: rgba(255, 255, 255, 0.08) !important;
+            font-weight: 500;
+            font-style: italic;
+            color: var(--color-text-primary);
+        }
+
+        .shotlist-table tbody tr.row--umbau td {
+            background: rgba(255, 255, 255, 0.10) !important;
+            font-weight: 500;
             color: var(--color-text-primary);
         }
 
@@ -1371,14 +1368,6 @@
         .special-total-cell .time-display,
         .special-time-cell .start-time-cell {
             display: inline-block;
-        }
-
-        .pause-row:hover {
-            background: linear-gradient(135deg, rgba(156,133,0,0.45) 0%, rgba(156,133,0,0.26) 100%) !important;
-        }
-        
-        .pause-row:hover td {
-            background: transparent !important;
         }
 
         .break-meta-cell {
@@ -1488,18 +1477,13 @@
         }
 
         .wrap-row {
-            background: linear-gradient(135deg, rgba(90,59,160,0.35) 0%, rgba(90,59,160,0.18) 100%) !important;
-            border-left: 5px solid var(--color-accent-wrap) !important;
+            border-left: 0;
         }
         
         .wrap-row td {
             background: transparent !important;
-            font-weight: 600;
+            font-weight: 500;
             color: var(--color-text-primary);
-        }
-        
-        .wrap-row:hover {
-            background: linear-gradient(135deg, rgba(90,59,160,0.45) 0%, rgba(90,59,160,0.26) 100%) !important;
         }
         
         .wrap-row:hover td {
@@ -1507,8 +1491,7 @@
         }
 
         .start-row {
-            background: linear-gradient(135deg, rgba(14,108,140,0.38) 0%, rgba(14,108,140,0.2) 100%) !important;
-            border-left: 5px solid var(--color-accent-start) !important;
+            border-left: 0;
         }
 
         .print-only {
@@ -1521,7 +1504,7 @@
 
         .start-row td {
             background: transparent !important;
-            font-weight: 600;
+            font-weight: 500;
             color: var(--color-text-primary);
         }
 
@@ -1533,12 +1516,12 @@
         }
 
         .umbau-row {
-            background: linear-gradient(135deg, rgba(180,95,6,0.32) 0%, rgba(180,95,6,0.18) 100%) !important;
-            border-left: 5px solid var(--color-accent-umbau) !important;
+            border-left: 0;
         }
 
         .umbau-row td {
             background: transparent !important;
+            font-weight: 500;
             color: var(--color-text-primary);
         }
 
@@ -3485,6 +3468,7 @@ function registerRow(row) {
     if (!row || row.dataset.selectionBound === '1') return;
     row.dataset.selectionBound = '1';
     row.classList.remove('row-selected');
+    applyRowTypeAttributes(row);
     row.addEventListener('click', handleRowClick);
 }
 
@@ -4173,9 +4157,15 @@ function updateSceneSummary(summaryData) {
 
     entries.forEach(entry => {
         const row = document.createElement('tr');
-        
+        row.dataset.rowType = '';
+        SPECIAL_ROW_TYPES.forEach(type => row.classList.remove(`row--${type}`));
+
         if (entry.type === 'special') {
             row.classList.add(`scene-summary-row-${entry.specialType}`);
+            if (SPECIAL_ROW_TYPES.includes(entry.specialType)) {
+                row.dataset.rowType = entry.specialType;
+                row.classList.add(`row--${entry.specialType}`);
+            }
             
             let durationDisplay;
             if (entry.specialType === 'pause') {
@@ -4339,6 +4329,7 @@ function addShot(data = {}) {
 
     setParallelState(row, !!data.parallel);
 
+    applyRowTypeAttributes(row);
     enableRowDrag(row);
     registerRow(row);
     insertRowBeforeWrap(row);
@@ -4380,6 +4371,7 @@ function addPause() {
         }
     }).join('');
     row.innerHTML = cells;
+    applyRowTypeAttributes(row);
     enableRowDrag(row);
     registerRow(row);
     insertRowBeforeWrap(row);
@@ -4416,11 +4408,13 @@ function addWrap() {
             }
         }).join('');
         row.innerHTML = cells;
+        applyRowTypeAttributes(row);
         registerRow(row);
     }
     row.classList.remove('draggable-row');
     row.removeAttribute('draggable');
     tbody.appendChild(row);
+    applyRowTypeAttributes(row);
     registerRow(row);
     if (columnSettings) applyColumnSettings(columnSettings);
     if (!isRestoringState) {
@@ -4455,6 +4449,7 @@ function addStart(data = {}) {
         }
     }).join('');
     row.innerHTML = cells;
+    applyRowTypeAttributes(row);
     enableRowDrag(row);
     registerRow(row);
     insertRowBeforeWrap(row);
@@ -4496,6 +4491,7 @@ function addUmbau(data = {}) {
         }
     }).join('');
     row.innerHTML = cells;
+    applyRowTypeAttributes(row);
     enableRowDrag(row);
     registerRow(row);
     insertUmbauRowAtPosition(row);
@@ -4529,6 +4525,7 @@ function calculateTime() {
     const startMinutes = parseStartMinutes();
     let currentStart = startMinutes;
     Array.from(tbody.rows).forEach(row => {
+        applyRowTypeAttributes(row);
         let rowDurationDisplay = 0;
         let rowDurationContribution = 0;
         let setupMinutes = 0;
@@ -5195,7 +5192,7 @@ async function exportToExcel() {
                 const key = columnKeys[colIdx] || '';
                 const horizontal = centerKeys.has(key) ? 'center' : 'left';
                 setStyle(rowIndex, colIdx, {
-                    font: { bold: false, sz: 11, color: { rgb: textHex } },
+                    font: { bold: false, sz: 11, color: { rgb: textHex }, italic: rowMeta.type === 'pause' },
                     fill: { patternType: 'solid', fgColor: { rgb: fillHex } },
                     alignment: { horizontal, vertical: 'top', wrapText: true },
                     border: borderStyle
@@ -5264,11 +5261,37 @@ const PDF_ROW_STYLES = {
     shotOdd: { fill: [255, 255, 255], text: [40, 40, 40] },
     shotEven: { fill: [246, 246, 246], text: [40, 40, 40] },
     start: { fill: [236, 236, 236], text: [40, 40, 40] },
-    pause: { fill: [233, 233, 233], text: [40, 40, 40] },
+    pause: { fill: [233, 233, 233], text: [40, 40, 40], fontStyle: 'italic' },
     wrap: { fill: [238, 238, 238], text: [40, 40, 40] },
     umbau: { fill: [224, 224, 224], text: [40, 40, 40] },
-    other: { fill: [245, 245, 245], text: [40, 40, 40] }
+    other: { fill: [255, 255, 255], text: [40, 40, 40] }
 };
+
+const SPECIAL_ROW_TYPES = ['start', 'pause', 'wrap', 'umbau'];
+
+function determineRowType(row) {
+    if (!row) return '';
+    if (row.dataset && row.dataset.rowType) {
+        return row.dataset.rowType;
+    }
+    if (row.classList.contains('pause-row')) return 'pause';
+    if (row.classList.contains('wrap-row')) return 'wrap';
+    if (row.classList.contains('start-row')) return 'start';
+    if (row.classList.contains('umbau-row')) return 'umbau';
+    if (row.classList.contains('shot-row')) return 'shot';
+    return '';
+}
+
+function applyRowTypeAttributes(row) {
+    if (!row) return;
+    const rowType = determineRowType(row) || 'shot';
+    row.dataset.rowType = rowType;
+    SPECIAL_ROW_TYPES.forEach(type => row.classList.remove(`row--${type}`));
+    if (SPECIAL_ROW_TYPES.includes(rowType)) {
+        row.classList.add(`row--${rowType}`);
+    }
+    // Ursache für fehlende Hervorhebung: Nach Drag&Drop fehlte der persistente rowType-Flag, daher wurde die graue Markierung überschrieben; Fix durch gespeicherte rowType-Daten.
+}
 
 const PDF_COLUMN_WEIGHTS = {
     scene: 0.8,
@@ -5342,17 +5365,72 @@ function collectShotlistTableData() {
     const rows = [];
     Array.from(table.querySelectorAll('tbody tr')).forEach(tr => {
         if (window.getComputedStyle(tr).display === 'none') return;
-        const rowType = tr.classList.contains('pause-row') ? 'pause'
-            : tr.classList.contains('wrap-row') ? 'wrap'
-            : tr.classList.contains('start-row') ? 'start'
-            : tr.classList.contains('umbau-row') ? 'umbau'
-            : 'shot';
+        const rowType = tr.dataset.rowType
+            || (tr.classList.contains('pause-row') ? 'pause'
+                : tr.classList.contains('wrap-row') ? 'wrap'
+                : tr.classList.contains('start-row') ? 'start'
+                : tr.classList.contains('umbau-row') ? 'umbau'
+                : tr.classList.contains('shot-row') ? 'shot'
+                : '');
         const cells = visibleColumns.map(({ idx }) => extractCellText(tr.cells[idx]));
         if (!cells.some(text => text && text.trim().length > 0)) return;
-        rows.push({ type: rowType, cells });
+        rows.push({ type: rowType || 'shot', cells });
     });
 
     return { headers, rows };
+}
+
+const SCENE_SUMMARY_MODE_LABELS = {
+    scene: 'Scene',
+    plan: 'Drehplan',
+    location: 'Locations'
+};
+
+const SCENE_SUMMARY_COLUMN_WEIGHTS = {
+    'szene': 1.2,
+    'scene': 1.2,
+    'location': 1.3,
+    'shots': 0.9,
+    'shot-liste': 2.4,
+    'drehzeit': 1.2,
+    'gesamtdauer': 1,
+    'szenen': 1.1
+};
+
+function collectSceneSummaryTableData() {
+    const container = document.getElementById('sceneSummary');
+    if (!container) return null;
+    const body = container.querySelector('.scene-summary-body');
+    if (!body || body.classList.contains('empty')) return null;
+    const table = body.querySelector('.scene-summary-table');
+    if (!table) return null;
+
+    const headers = Array.from(table.querySelectorAll('thead th')).map(th => normalizeCellText(th.textContent || ''));
+    if (!headers.length) return null;
+
+    const rows = [];
+    Array.from(table.querySelectorAll('tbody tr')).forEach(tr => {
+        const cells = Array.from(tr.cells || []).map(cell => normalizeCellText(cell.textContent || ''));
+        if (!cells.length) return;
+        const rowType = tr.dataset.rowType
+            || (tr.classList.contains('scene-summary-row-start') ? 'start'
+                : tr.classList.contains('scene-summary-row-pause') ? 'pause'
+                : tr.classList.contains('scene-summary-row-wrap') ? 'wrap'
+                : tr.classList.contains('scene-summary-row-umbau') ? 'umbau'
+                : '');
+        rows.push({ type: rowType || '', cells });
+    });
+
+    if (!rows.length) return null;
+
+    const mode = typeof sceneSummaryMode === 'string' ? sceneSummaryMode : 'scene';
+
+    return {
+        headers,
+        rows,
+        mode,
+        modeLabel: SCENE_SUMMARY_MODE_LABELS[mode] || 'Scene'
+    };
 }
 
 function safeFieldValue(selector) {
@@ -5539,27 +5617,71 @@ async function exportToPDF() {
 
         const tableStartY = cursorY + 16;
 
+        const renderPageFooter = (data) => {
+            const pageCount = doc.internal.getNumberOfPages();
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(90, 90, 90);
+            doc.text(`Seite ${data.pageNumber} von ${pageCount}`, pageWidth - margins.right, pageHeight - 20, { align: 'right' });
+        };
+
+        const stylePdfCell = (data) => {
+            if (data.section !== 'body') return;
+            const raw = data.row.raw || {};
+            const rowType = raw.rowType || '';
+            const applyZebra = raw.__applyZebra;
+            let palette = null;
+            if (rowType && SPECIAL_ROW_TYPES.includes(rowType)) {
+                palette = PDF_ROW_STYLES[rowType] || null;
+            } else if (applyZebra) {
+                const index = raw.__rowIndex || 0;
+                palette = (index % 2 === 0) ? PDF_ROW_STYLES.shotEven : PDF_ROW_STYLES.shotOdd;
+            }
+            if (palette) {
+                if (palette.fill) data.cell.styles.fillColor = palette.fill;
+                if (palette.text) data.cell.styles.textColor = palette.text;
+                data.cell.styles.fontStyle = palette.fontStyle || 'normal';
+            } else {
+                data.cell.styles.fontStyle = 'normal';
+            }
+        };
+
         const availableWidth = contentWidth;
         const weights = tableData.headers.map(header => PDF_COLUMN_WEIGHTS[header.key] || 1);
         const totalWeight = weights.reduce((sum, weight) => sum + weight, 0) || tableData.headers.length;
+        const tableColumns = tableData.headers.map((header, idx) => ({
+            header: header.label,
+            dataKey: `col_${idx}`,
+            weight: weights[idx] || 1,
+            key: header.key || ''
+        }));
+
+        const baseFontSize = tableData.rows.length > 28 ? 8 : 9;
+
         const columnStyles = {};
-        tableData.headers.forEach((header, idx) => {
-            const width = availableWidth * (weights[idx] || 1) / totalWeight;
-            columnStyles[idx] = {
+        tableColumns.forEach(column => {
+            const width = availableWidth * column.weight / totalWeight;
+            columnStyles[column.dataKey] = {
                 cellWidth: width,
                 minCellHeight: 16,
                 overflow: 'linebreak'
             };
         });
 
-        const baseFontSize = tableData.rows.length > 28 ? 8 : 9;
+        const tableBody = tableData.rows.map((row, idx) => {
+            const rowData = { rowType: row.type || 'shot', __rowIndex: idx, __applyZebra: true };
+            tableColumns.forEach((column, colIdx) => {
+                rowData[column.dataKey] = row.cells[colIdx] || '';
+            });
+            return rowData;
+        });
 
         doc.autoTable({
             startY: tableStartY,
             margin: { left: margins.left, right: margins.right, top: margins.top, bottom: margins.bottom },
             tableWidth: availableWidth,
-            head: [tableData.headers.map(header => header.label)],
-            body: tableData.rows.map(row => row.cells),
+            columns: tableColumns.map(({ header, dataKey }) => ({ header, dataKey })),
+            body: tableBody,
             theme: 'grid',
             styles: {
                 font: 'helvetica',
@@ -5581,27 +5703,94 @@ async function exportToPDF() {
             },
             columnStyles,
             rowPageBreak: 'avoid',
-            willDrawCell(data) {
-                if (data.section !== 'body') return;
-                const rowMeta = tableData.rows[data.row.index];
-                if (!rowMeta) return;
-                let palette;
-                if (rowMeta.type === 'shot') {
-                    palette = (data.row.index % 2 === 0) ? PDF_ROW_STYLES.shotEven : PDF_ROW_STYLES.shotOdd;
-                } else {
-                    palette = PDF_ROW_STYLES[rowMeta.type] || PDF_ROW_STYLES.other;
-                }
-                data.cell.styles.fillColor = palette.fill;
-                data.cell.styles.textColor = palette.text;
-            },
-            didDrawPage(data) {
-                const pageCount = doc.internal.getNumberOfPages();
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(9);
-                doc.setTextColor(90, 90, 90);
-                doc.text(`Seite ${data.pageNumber} von ${pageCount}`, pageWidth - margins.right, pageHeight - 20, { align: 'right' });
-            }
+            didParseCell: stylePdfCell,
+            didDrawPage: renderPageFooter
         });
+
+        const summaryData = collectSceneSummaryTableData();
+        if (summaryData) {
+            const summaryTableWidth = availableWidth * 0.9;
+            const extraMargin = (availableWidth - summaryTableWidth) / 2;
+            const summaryMargins = {
+                left: margins.left + extraMargin,
+                right: margins.right + extraMargin,
+                top: margins.top,
+                bottom: margins.bottom
+            };
+
+            const summaryColumns = summaryData.headers.map((label, idx) => ({
+                header: label,
+                dataKey: `sum_${idx}`,
+                weight: SCENE_SUMMARY_COLUMN_WEIGHTS[label.toLowerCase()] || 1
+            }));
+
+            const summaryTotalWeight = summaryColumns.reduce((sum, column) => sum + (column.weight || 1), 0) || summaryColumns.length;
+            const summaryColumnStyles = {};
+            summaryColumns.forEach(column => {
+                const width = summaryTableWidth * (column.weight || 1) / summaryTotalWeight;
+                summaryColumnStyles[column.dataKey] = {
+                    cellWidth: width,
+                    minCellHeight: 16,
+                    overflow: 'linebreak'
+                };
+            });
+
+            const summaryBody = summaryData.rows.map((row, idx) => {
+                const raw = { rowType: row.type || '', __rowIndex: idx, __applyZebra: false };
+                summaryColumns.forEach((column, colIdx) => {
+                    raw[column.dataKey] = row.cells[colIdx] || '';
+                });
+                return raw;
+            });
+
+            if (summaryBody.length) {
+                const summaryTitle = `Szenenübersicht – ${summaryData.modeLabel}`;
+                let summaryTitleY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 18 : tableStartY + 18;
+                if (summaryTitleY > pageHeight - margins.bottom - 20) {
+                    doc.addPage();
+                    summaryTitleY = margins.top;
+                }
+                const summaryTitleX = summaryMargins.left;
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(14);
+                doc.setTextColor(30, 30, 30);
+                doc.text(summaryTitle, summaryTitleX, summaryTitleY);
+                summaryTitleY += 8;
+
+                const summaryBaseFontSize = summaryBody.length > 24 ? 8 : 9;
+
+                doc.autoTable({
+                    startY: summaryTitleY,
+                    margin: summaryMargins,
+                    tableWidth: summaryTableWidth,
+                    columns: summaryColumns.map(({ header, dataKey }) => ({ header, dataKey })),
+                    body: summaryBody,
+                    theme: 'grid',
+                    styles: {
+                        font: 'helvetica',
+                        fontSize: summaryBaseFontSize,
+                        cellPadding: { top: 4, right: 4, bottom: 4, left: 4 },
+                        textColor: [40, 40, 40],
+                        lineColor: [210, 210, 210],
+                        lineWidth: 0.35,
+                        halign: 'left',
+                        valign: 'top',
+                        overflow: 'linebreak'
+                    },
+                    headStyles: {
+                        fillColor: [220, 220, 220],
+                        textColor: [35, 35, 35],
+                        fontSize: summaryBaseFontSize + 1,
+                        fontStyle: 'bold',
+                        halign: 'center'
+                    },
+                    columnStyles: summaryColumnStyles,
+                    rowPageBreak: 'avoid',
+                    didParseCell: stylePdfCell,
+                    didDrawPage: renderPageFooter
+                });
+            }
+        }
 
         const prod = headerData.title || 'Shotlist';
         const date = safeFieldValue('#date');
@@ -6378,41 +6567,22 @@ function joinWithSceneSeparators(labels) {
         .shotlist-table tbody tr.shot-row:nth-of-type(even) td {
             background: var(--color-table-row-alt);
         }
-        .pause-row {
-            background: linear-gradient(135deg, rgba(156,133,0,0.32) 0%, rgba(156,133,0,0.18) 100%) !important;
-            border-left: 5px solid var(--color-accent-pause) !important;
-        }
-        .pause-row td {
-            background: transparent !important;
+        .shotlist-table tbody tr.row--start td,
+        .shotlist-table tbody tr.row--wrap td {
+            background: rgba(0, 0, 0, 0.06) !important;
             color: var(--color-text-primary) !important;
-            font-weight: 600;
+            font-weight: 500;
         }
-        .wrap-row {
-            background: linear-gradient(135deg, rgba(90,59,160,0.35) 0%, rgba(90,59,160,0.18) 100%) !important;
-            border-left: 5px solid var(--color-accent-wrap) !important;
-        }
-        .wrap-row td {
-            background: transparent !important;
+        .shotlist-table tbody tr.row--pause td {
+            background: rgba(0, 0, 0, 0.08) !important;
             color: var(--color-text-primary) !important;
-            font-weight: 600;
+            font-weight: 500;
+            font-style: italic;
         }
-        .start-row {
-            background: linear-gradient(135deg, rgba(14,108,140,0.38) 0%, rgba(14,108,140,0.18) 100%) !important;
-            border-left: 5px solid var(--color-accent-start) !important;
-        }
-        .start-row td {
-            background: transparent !important;
+        .shotlist-table tbody tr.row--umbau td {
+            background: rgba(0, 0, 0, 0.1) !important;
             color: var(--color-text-primary) !important;
-            font-weight: 600;
-        }
-        .umbau-row {
-            background: linear-gradient(135deg, rgba(180,95,6,0.35) 0%, rgba(180,95,6,0.18) 100%) !important;
-            border-left: 5px solid var(--color-accent-umbau) !important;
-        }
-        .umbau-row td {
-            background: transparent !important;
-            color: var(--color-text-primary) !important;
-            font-weight: 600;
+            font-weight: 500;
         }
         body.printing-active .shotlist-table select,
         body.printing-active .shotlist-table textarea,
@@ -6468,21 +6638,22 @@ function joinWithSceneSeparators(labels) {
         .scene-summary-row-shotgroup td:first-child {
             color: var(--color-text-secondary);
         }
-        .scene-summary-row-start td {
-            background: transparent !important;
-            color: var(--color-text-primary) !important;
+        .scene-summary-table tbody tr.row--start td,
+        .scene-summary-table tbody tr.row--wrap td {
+            background: #f5f5f5 !important;
+            color: #1f1f1f !important;
+            font-weight: 500;
         }
-        .scene-summary-row-pause td {
-            background: transparent !important;
-            color: var(--color-text-primary) !important;
+        .scene-summary-table tbody tr.row--pause td {
+            background: #f0f0f0 !important;
+            color: #1f1f1f !important;
+            font-weight: 500;
+            font-style: italic;
         }
-        .scene-summary-row-wrap td {
-            background: transparent !important;
-            color: var(--color-text-primary) !important;
-        }
-        .scene-summary-row-umbau td {
-            background: transparent !important;
-            color: var(--color-text-primary) !important;
+        .scene-summary-table tbody tr.row--umbau td {
+            background: #ececec !important;
+            color: #1f1f1f !important;
+            font-weight: 500;
         }
     </style>
 </body>

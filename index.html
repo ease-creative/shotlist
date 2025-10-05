@@ -5479,6 +5479,92 @@ function collectSceneSummaryTableData() {
     };
 }
 
+function formatProductionTitleForFilename(rawTitle) {
+    const fallback = 'Untitled';
+    if (!rawTitle || !rawTitle.trim()) return fallback;
+    let cleaned = rawTitle.trim();
+    cleaned = cleaned.replace(/\s+/g, '_');
+    cleaned = cleaned.replace(/\b(20\d{2}|\d{2})\b/g, '');
+    cleaned = cleaned.replace(/[^A-Za-z0-9_]+/g, '_');
+    cleaned = cleaned.replace(/_+/g, '_');
+    cleaned = cleaned.replace(/^_+|_+$/g, '');
+    return cleaned || fallback;
+}
+
+function isValidDateParts(year, month, day) {
+    if (!year || !month || !day) return false;
+    if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+    const date = new Date(year, month - 1, day);
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
+function formatDateParts(year, month, day) {
+    if (!isValidDateParts(year, month, day)) return null;
+    const pad = (value) => String(value).padStart(2, '0');
+    return `${year}${pad(month)}${pad(day)}`;
+}
+
+function formatDateForFilename(rawDate) {
+    const now = new Date();
+    const fallback = formatDateParts(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    const value = (rawDate || '').trim();
+    if (!value) return fallback;
+
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+        return formatDateParts(parsed.getFullYear(), parsed.getMonth() + 1, parsed.getDate()) || fallback;
+    }
+
+    const tokens = value.match(/\d+/g);
+    if (tokens && tokens.length) {
+        if (tokens.length === 1 && tokens[0].length === 8) {
+            const token = tokens[0];
+            const candidate = formatDateParts(parseInt(token.slice(0, 4), 10), parseInt(token.slice(4, 6), 10), parseInt(token.slice(6, 8), 10));
+            if (candidate) return candidate;
+        }
+
+        if (tokens.length >= 3) {
+            let [a, b, c] = tokens;
+            let year;
+            let month;
+            let day;
+
+            if (a.length === 4) {
+                year = parseInt(a, 10);
+                month = parseInt(b, 10);
+                day = parseInt(c, 10);
+            } else if (c.length === 4) {
+                year = parseInt(c, 10);
+                month = parseInt(a, 10);
+                day = parseInt(b, 10);
+            } else {
+                year = parseInt(c, 10);
+                if (year < 100) year += 2000;
+                month = parseInt(b, 10);
+                day = parseInt(a, 10);
+            }
+
+            const candidate = formatDateParts(year, month, day);
+            if (candidate) return candidate;
+        }
+
+        if (tokens.length === 2) {
+            let [a, b] = tokens;
+            let month = parseInt(a, 10);
+            let day = parseInt(b, 10);
+            if (month > 12 && day <= 12) {
+                const temp = month;
+                month = day;
+                day = temp;
+            }
+            const candidate = formatDateParts(now.getFullYear(), month, day);
+            if (candidate) return candidate;
+        }
+    }
+
+    return fallback;
+}
+
 function safeFieldValue(selector) {
     const el = document.querySelector(selector);
     if (!el) return '';
@@ -5677,6 +5763,22 @@ async function exportToPDF() {
             const rowType = raw.rowType || '';
             const applyZebra = raw.__applyZebra;
             const context = raw.__context || 'shots';
+            if (context === 'shots' && rowType === 'wrap' && data.column && typeof data.column.dataKey === 'string' && data.column.dataKey.endsWith('_0')) {
+                const joined = (data.cell.text || []).join(' ').replace(/\s+/g, ' ').trim();
+                const totalMatch = joined.match(/total\s+shots?:?\s*[^\s]+/i);
+                const scenesMatch = joined.match(/szenen:\s*.*/i);
+                const lines = [];
+                if (totalMatch) {
+                    lines.push(totalMatch[0].replace(/\s+Shots/i, ' Shots'));
+                }
+                if (scenesMatch) {
+                    lines.push(scenesMatch[0]);
+                }
+                if (!lines.length && joined) {
+                    lines.push(joined);
+                }
+                data.cell.text = lines;
+            }
             if (context === 'summary') {
                 const overviewStyle = getSceneOverviewRowStyle(rowType);
                 if (overviewStyle) {
@@ -5853,9 +5955,12 @@ async function exportToPDF() {
             }
         }
 
-        const prod = headerData.title || 'Shotlist';
-        const date = safeFieldValue('#date');
-        const fileName = `${prod}${date ? ' – ' + date : ''}.pdf`;
+        const titleComponent = formatProductionTitleForFilename(headerData.title || '');
+        const formattedDate = formatDateForFilename(safeFieldValue('#date'));
+        const filenameParts = ['Shotlist', titleComponent, formattedDate]
+            .filter(Boolean)
+            .map(part => part.replace(/_+/g, '_'));
+        const fileName = `${filenameParts.join('_')}.pdf`.replace(/_+\.pdf$/, '.pdf');
         doc.save(fileName);
     });
 }

@@ -5047,10 +5047,190 @@ function updateWrapNetto(totalMinutes, pauseMinutes) {
     displayTarget.innerHTML = markup;
 }
 
-function exportToExcel() {
-    const table = document.querySelector('.shotlist-table');
-    const wb = XLSX.utils.table_to_book(table, {sheet:"Shotlist"});
-    XLSX.writeFile(wb, 'shotlist.xlsx');
+async function exportToExcel() {
+    const toExcelHex = (rgb) => {
+        const [r, g, b] = Array.isArray(rgb) && rgb.length === 3 ? rgb : [255, 255, 255];
+        const hex = ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
+        return `FF${hex}`;
+    };
+
+    const sanitize = (value) => {
+        if (!value) return '';
+        return value.toString()
+            .trim()
+            .replace(/\s+/g, ' ')
+            .replace(/[\\/:*?"<>|]+/g, '_')
+            .replace(/^_+|_+$/g, '')
+            .slice(0, 100);
+    };
+
+    await runInPreviewOnce(() => {
+        if (!window.XLSX || !XLSX.utils || !XLSX.writeFile) {
+            alert('Excel-Export nicht verfügbar.');
+            return;
+        }
+
+        const headerData = collectHeaderData();
+        const tableData = collectShotlistTableData();
+        if (!tableData.headers.length || !tableData.rows.length) {
+            alert('Keine Shotlist-Daten für den Excel-Export gefunden.');
+            return;
+        }
+
+        const columnCount = tableData.headers.length;
+        const columnKeys = tableData.headers.map(header => header.key);
+
+        const sheetData = [];
+        const merges = [];
+        const styleMap = new Map();
+
+        const ensureRow = (values = []) => {
+            const row = new Array(columnCount).fill('');
+            values.forEach((value, idx) => {
+                if (idx < columnCount) row[idx] = value != null ? value : '';
+            });
+            sheetData.push(row);
+            return sheetData.length - 1;
+        };
+
+        const setStyle = (rowIdx, colIdx, style) => {
+            styleMap.set(`${rowIdx},${colIdx}`, style);
+        };
+
+        const borderStyle = {
+            top: { style: 'thin', color: { rgb: 'FFD4D4D4' } },
+            bottom: { style: 'thin', color: { rgb: 'FFD4D4D4' } },
+            left: { style: 'thin', color: { rgb: 'FFD4D4D4' } },
+            right: { style: 'thin', color: { rgb: 'FFD4D4D4' } }
+        };
+
+        const titleRowIdx = ensureRow();
+        const titleValue = headerData.title || 'Shotlist';
+        sheetData[titleRowIdx][0] = titleValue;
+        merges.push({ s: { r: titleRowIdx, c: 0 }, e: { r: titleRowIdx, c: columnCount - 1 } });
+        setStyle(titleRowIdx, 0, {
+            font: { bold: true, sz: 16, color: { rgb: 'FF1E1E1E' } },
+            alignment: { horizontal: 'left', vertical: 'center' }
+        });
+
+        const metaMap = {};
+        headerData.metaRows.forEach(pair => {
+            pair.forEach(entry => {
+                if (entry && entry.label) {
+                    metaMap[entry.label] = entry.value || '';
+                }
+            });
+        });
+
+        const statsMap = {};
+        headerData.stats.forEach(stat => {
+            statsMap[stat.label] = stat.value || '';
+        });
+
+        const formatInfo = (label, value) => `${label}: ${value || '—'}`;
+
+        const addInfoRow = (values) => {
+            if (!values.length) return;
+            const rowIdx = ensureRow();
+            values.forEach((text, idx) => {
+                if (!text) return;
+                const colStart = idx * 2;
+                if (colStart >= columnCount) return;
+                const colEnd = Math.min(colStart + 1, columnCount - 1);
+                sheetData[rowIdx][colStart] = text;
+                if (colEnd > colStart) {
+                    merges.push({ s: { r: rowIdx, c: colStart }, e: { r: rowIdx, c: colEnd } });
+                }
+                setStyle(rowIdx, colStart, {
+                    font: { bold: false, sz: 11, color: { rgb: 'FF333333' } },
+                    fill: { patternType: 'solid', fgColor: { rgb: 'FFF6F6F6' } },
+                    alignment: { horizontal: 'left', vertical: 'center' }
+                });
+            });
+        };
+
+        addInfoRow([
+            formatInfo('Production Title', titleValue),
+            formatInfo('Client', headerData.subtitle || metaMap.Client || ''),
+            formatInfo('Location', metaMap.Location || ''),
+            formatInfo('Director', metaMap.Director || ''),
+            formatInfo('Cinematographer', metaMap.Cinematographer || ''),
+            formatInfo('Date', metaMap.Date || ''),
+            formatInfo('Agency', metaMap.Agency || '')
+        ]);
+
+        addInfoRow([
+            formatInfo('Start', metaMap.Start || ''),
+            formatInfo('Wrap', metaMap.Wrap || ''),
+            formatInfo('Shots', statsMap.Shots || ''),
+            formatInfo('Total Time', statsMap['Total Time'] || ''),
+            formatInfo('Available Time', statsMap.Available || ''),
+            formatInfo('Difference', statsMap.Difference || '')
+        ]);
+
+        ensureRow();
+
+        const headerRowIdx = ensureRow(tableData.headers.map(header => header.label));
+        tableData.headers.forEach((header, idx) => {
+            setStyle(headerRowIdx, idx, {
+                font: { bold: true, color: { rgb: 'FF1F1F1F' } },
+                fill: { patternType: 'solid', fgColor: { rgb: 'FFE2E2E2' } },
+                alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+                border: borderStyle
+            });
+        });
+
+        const centerKeys = new Set(['scene', 'shot', 'extint', 'sound', 'setup', 'shoot', 'total', 'time']);
+
+        tableData.rows.forEach((rowMeta, rowIdx) => {
+            const rowValues = rowMeta.cells.map(value => value || '');
+            const rowIndex = ensureRow(rowValues);
+            const palette = rowMeta.type === 'shot'
+                ? (rowIdx % 2 === 0 ? PDF_ROW_STYLES.shotEven : PDF_ROW_STYLES.shotOdd)
+                : PDF_ROW_STYLES[rowMeta.type] || PDF_ROW_STYLES.other;
+            const fillHex = toExcelHex(palette.fill);
+            const textHex = toExcelHex(palette.text);
+
+            rowValues.forEach((_, colIdx) => {
+                const key = columnKeys[colIdx] || '';
+                const horizontal = centerKeys.has(key) ? 'center' : 'left';
+                setStyle(rowIndex, colIdx, {
+                    font: { bold: false, sz: 11, color: { rgb: textHex } },
+                    fill: { patternType: 'solid', fgColor: { rgb: fillHex } },
+                    alignment: { horizontal, vertical: 'top', wrapText: true },
+                    border: borderStyle
+                });
+            });
+        });
+
+        const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+        worksheet['!merges'] = merges;
+
+        worksheet['!cols'] = columnKeys.map(key => {
+            const weight = PDF_COLUMN_WEIGHTS[key] || 1;
+            const width = Math.max(10, Math.round(weight * 6));
+            return { wch: width };
+        });
+
+        styleMap.forEach((style, coordKey) => {
+            const [rowStr, colStr] = coordKey.split(',');
+            const address = XLSX.utils.encode_cell({ r: parseInt(rowStr, 10), c: parseInt(colStr, 10) });
+            const cell = worksheet[address] || { t: 's', v: '' };
+            cell.s = style;
+            worksheet[address] = cell;
+        });
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Shotlist');
+
+        const titleForName = sanitize(titleValue) || 'Shotlist';
+        const dateForName = sanitize(metaMap.Date || '');
+        const fileNameParts = ['Shotlist', titleForName];
+        if (dateForName) fileNameParts.push(dateForName);
+        const fileName = `${fileNameParts.join('_')}.xlsx`;
+
+        XLSX.writeFile(workbook, fileName, { compression: true });
+    });
 }
 
 async function runInPreviewOnce(taskFn) {

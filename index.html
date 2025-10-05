@@ -5080,6 +5080,152 @@ async function runInPreviewOnce(taskFn) {
     }
 }
 
+const PDF_ROW_STYLES = {
+    shotOdd: { fill: [255, 255, 255], text: [40, 40, 40] },
+    shotEven: { fill: [245, 245, 245], text: [40, 40, 40] },
+    start: { fill: [230, 240, 245], text: [35, 35, 35] },
+    pause: { fill: [242, 239, 226], text: [35, 35, 35] },
+    wrap: { fill: [233, 232, 243], text: [35, 35, 35] },
+    umbau: { fill: [241, 232, 226], text: [35, 35, 35] },
+    other: { fill: [248, 248, 248], text: [40, 40, 40] }
+};
+
+const PDF_COLUMN_WEIGHTS = {
+    scene: 0.9,
+    shot: 0.9,
+    type: 1.2,
+    movement: 1.2,
+    gear: 1.4,
+    location: 1.4,
+    extint: 1,
+    sound: 1,
+    description: 2.1,
+    cast: 1.6,
+    reference: 1.1,
+    setup: 1,
+    shoot: 1,
+    total: 1,
+    time: 1.1
+};
+
+function normalizeCellText(value) {
+    return (value || '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .split('\n')
+        .map(part => part.trim())
+        .filter(Boolean)
+        .join('\n');
+}
+
+function extractCellText(cell) {
+    if (!cell) return '';
+    const previewValue = cell.querySelector('.print-field-value');
+    if (previewValue) {
+        return normalizeCellText(previewValue.textContent || '');
+    }
+    const input = cell.querySelector('input, textarea');
+    if (input) {
+        return normalizeCellText(input.value || '');
+    }
+    const select = cell.querySelector('select');
+    if (select) {
+        const option = select.options && select.selectedIndex >= 0
+            ? select.options[select.selectedIndex]
+            : null;
+        return normalizeCellText((option && (option.textContent || option.label)) || select.value || '');
+    }
+    return normalizeCellText(cell.textContent || '');
+}
+
+function collectShotlistTableData() {
+    const table = document.querySelector('.shotlist-table');
+    if (!table) return { headers: [], rows: [] };
+
+    const headerCells = Array.from(table.querySelectorAll('thead th'));
+    const visibleColumns = headerCells
+        .map((th, idx) => ({ th, idx }))
+        .filter(({ th }) => {
+            if (!th) return false;
+            const key = (th.dataset.colKey || '').toLowerCase();
+            if (key === 'action') return false;
+            const style = window.getComputedStyle(th);
+            return style.display !== 'none' && style.visibility !== 'hidden' && th.offsetParent !== null;
+        });
+
+    const headers = visibleColumns.map(({ th }) => ({
+        label: normalizeCellText(th.textContent || ''),
+        key: th.dataset.colKey || ''
+    }));
+
+    const rows = [];
+    Array.from(table.querySelectorAll('tbody tr')).forEach(tr => {
+        if (window.getComputedStyle(tr).display === 'none') return;
+        const rowType = tr.classList.contains('pause-row') ? 'pause'
+            : tr.classList.contains('wrap-row') ? 'wrap'
+            : tr.classList.contains('start-row') ? 'start'
+            : tr.classList.contains('umbau-row') ? 'umbau'
+            : 'shot';
+        const cells = visibleColumns.map(({ idx }) => extractCellText(tr.cells[idx]));
+        if (!cells.some(text => text && text.trim().length > 0)) return;
+        rows.push({ type: rowType, cells });
+    });
+
+    return { headers, rows };
+}
+
+function safeFieldValue(selector) {
+    const el = document.querySelector(selector);
+    if (!el) return '';
+    if ('value' in el) {
+        return (el.value || '').trim();
+    }
+    return (el.textContent || '').trim();
+}
+
+function collectHeaderData() {
+    const productionTitle = safeFieldValue('#productionTitle') || 'Shotlist';
+    const clientName = safeFieldValue('#clientName');
+    const location = safeFieldValue('#location');
+    const director = safeFieldValue('#director');
+    const shootDate = safeFieldValue('#date');
+    const cinematographer = safeFieldValue('#cinematographer');
+    const agency = safeFieldValue('#agency');
+    const startTime = safeFieldValue('#startTime');
+    const wrapTime = safeFieldValue('#wrapTime');
+
+    const stats = [
+        { label: 'Shots', value: safeFieldValue('#shotCountDisplay') },
+        { label: 'Total Time', value: safeFieldValue('#totalTimeDisplay') },
+        { label: 'Available', value: safeFieldValue('#availableTimeDisplay') },
+        { label: 'Difference', value: safeFieldValue('#timeDifferenceDisplay') }
+    ].filter(stat => stat.value);
+
+    const metaEntries = [
+        { label: 'Client', value: clientName },
+        { label: 'Location', value: location },
+        { label: 'Director', value: director },
+        { label: 'Date', value: shootDate },
+        { label: 'Cinematographer', value: cinematographer },
+        { label: 'Agency', value: agency },
+        { label: 'Start', value: startTime },
+        { label: 'Wrap', value: wrapTime }
+    ].filter(entry => entry.value);
+
+    const metaRows = [];
+    for (let i = 0; i < metaEntries.length; i += 2) {
+        metaRows.push([metaEntries[i], metaEntries[i + 1] || null]);
+    }
+
+    return {
+        title: productionTitle,
+        subtitle: clientName,
+        metaRows,
+        stats
+    };
+}
+
 async function exportToPDF() {
     await runInPreviewOnce(() => {
         const table = document.querySelector('.shotlist-table');
@@ -5095,33 +5241,191 @@ async function exportToPDF() {
         }
 
         const { jsPDF } = jspdfNamespace;
-        const doc = new jsPDF('landscape');
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
 
         if (typeof doc.autoTable !== 'function') {
             alert('PDF-Export nicht verfügbar (autoTable-Plug-in fehlt).');
             return;
         }
 
-        doc.text('Shotlist Export', 14, 15);
+        const headerData = collectHeaderData();
+        const tableData = collectShotlistTableData();
+        if (!tableData.headers.length || !tableData.rows.length) {
+            alert('Keine Shotlist-Daten für den PDF-Export gefunden.');
+            return;
+        }
+
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margins = { top: 46, left: 40, right: 40, bottom: 46 };
+        const contentWidth = pageWidth - margins.left - margins.right;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.setTextColor(30, 30, 30);
+        doc.text(headerData.title || 'Shotlist', margins.left, margins.top);
+
+        let cursorY = margins.top + 10;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(40, 40, 40);
+
+        if (headerData.subtitle) {
+            doc.setFontSize(11);
+            doc.setTextColor(70, 70, 70);
+            const subtitleLines = doc.splitTextToSize(headerData.subtitle, contentWidth);
+            const subtitleY = cursorY + 6;
+            doc.text(subtitleLines, margins.left, subtitleY);
+            const subtitleBox = doc.getTextDimensions(subtitleLines);
+            cursorY = subtitleY + subtitleBox.h;
+            doc.setTextColor(40, 40, 40);
+            doc.setFontSize(10);
+        } else {
+            doc.setFontSize(10);
+        }
+
+        if (headerData.metaRows.length) {
+            const metaLabelWidth = 72;
+            doc.autoTable({
+                startY: cursorY + 12,
+                margin: { left: margins.left, right: margins.right },
+                theme: 'plain',
+                tableWidth: contentWidth,
+                styles: {
+                    fontSize: 10,
+                    textColor: [40, 40, 40],
+                    cellPadding: { top: 2, right: 6, bottom: 2, left: 6 }
+                },
+                columnStyles: {
+                    0: { cellWidth: metaLabelWidth, fontStyle: 'bold', textColor: [85, 85, 85] },
+                    1: { cellWidth: contentWidth / 2 - metaLabelWidth, textColor: [40, 40, 40] },
+                    2: { cellWidth: metaLabelWidth, fontStyle: 'bold', textColor: [85, 85, 85] },
+                    3: { cellWidth: contentWidth / 2 - metaLabelWidth, textColor: [40, 40, 40] }
+                },
+                body: headerData.metaRows.map(pair => [
+                    pair[0] ? pair[0].label : '',
+                    pair[0] ? pair[0].value : '',
+                    pair[1] ? pair[1].label : '',
+                    pair[1] ? pair[1].value : ''
+                ])
+            });
+            cursorY = doc.lastAutoTable.finalY;
+        }
+
+        if (headerData.stats.length) {
+            const statsTableStart = cursorY + 10;
+            const statsBody = [
+                headerData.stats.map(stat => ({
+                    content: stat.value,
+                    styles: { fontSize: 12, fontStyle: 'bold', textColor: [30, 30, 30] }
+                })),
+                headerData.stats.map(stat => ({
+                    content: stat.label,
+                    styles: { fontSize: 9, fontStyle: 'normal', textColor: [90, 90, 90] }
+                }))
+            ];
+
+            const statColumnStyles = headerData.stats.reduce((acc, _stat, idx) => {
+                acc[idx] = {
+                    cellWidth: contentWidth / headerData.stats.length,
+                    fillColor: [236, 236, 236],
+                    halign: 'center'
+                };
+                return acc;
+            }, {});
+
+            doc.autoTable({
+                startY: statsTableStart,
+                margin: { left: margins.left, right: margins.right },
+                theme: 'plain',
+                tableWidth: contentWidth,
+                styles: {
+                    fontSize: 11,
+                    textColor: [30, 30, 30],
+                    halign: 'center',
+                    cellPadding: { top: 4, right: 4, bottom: 4, left: 4 }
+                },
+                columnStyles: statColumnStyles,
+                body: statsBody,
+                didParseCell(data) {
+                    if (data.row.index === 1) {
+                        data.cell.styles.fontSize = 9;
+                        data.cell.styles.fillColor = [245, 245, 245];
+                    }
+                }
+            });
+            cursorY = doc.lastAutoTable.finalY;
+        }
+
+        const tableStartY = cursorY + 16;
+
+        const availableWidth = contentWidth;
+        const weights = tableData.headers.map(header => PDF_COLUMN_WEIGHTS[header.key] || 1);
+        const totalWeight = weights.reduce((sum, weight) => sum + weight, 0) || tableData.headers.length;
+        const columnStyles = {};
+        tableData.headers.forEach((header, idx) => {
+            const width = availableWidth * (weights[idx] || 1) / totalWeight;
+            columnStyles[idx] = {
+                cellWidth: width,
+                minCellHeight: 16,
+                overflow: 'linebreak'
+            };
+        });
+
+        const baseFontSize = tableData.rows.length > 28 ? 8 : 9;
+
         doc.autoTable({
-            html: '.shotlist-table',
-            startY: 25,
+            startY: tableStartY,
+            margin: { left: margins.left, right: margins.right, top: margins.top, bottom: margins.bottom },
+            tableWidth: availableWidth,
+            head: [tableData.headers.map(header => header.label)],
+            body: tableData.rows.map(row => row.cells),
             theme: 'grid',
             styles: {
-                fontSize: 8,
-                cellPadding: 3,
+                font: 'helvetica',
+                fontSize: baseFontSize,
+                cellPadding: { top: 5, right: 5, bottom: 5, left: 5 },
+                textColor: [40, 40, 40],
+                lineColor: [210, 210, 210],
+                lineWidth: 0.4,
+                halign: 'left',
+                valign: 'top',
                 overflow: 'linebreak'
             },
             headStyles: {
-                fillColor: [40, 40, 40],
-                textColor: 255,
-                fontStyle: 'bold'
+                fillColor: [220, 220, 220],
+                textColor: [35, 35, 35],
+                fontSize: baseFontSize + 1,
+                fontStyle: 'bold',
+                halign: 'center'
+            },
+            columnStyles,
+            rowPageBreak: 'avoid',
+            willDrawCell(data) {
+                if (data.section !== 'body') return;
+                const rowMeta = tableData.rows[data.row.index];
+                if (!rowMeta) return;
+                let palette;
+                if (rowMeta.type === 'shot') {
+                    palette = (data.row.index % 2 === 0) ? PDF_ROW_STYLES.shotEven : PDF_ROW_STYLES.shotOdd;
+                } else {
+                    palette = PDF_ROW_STYLES[rowMeta.type] || PDF_ROW_STYLES.other;
+                }
+                data.cell.styles.fillColor = palette.fill;
+                data.cell.styles.textColor = palette.text;
+            },
+            didDrawPage(data) {
+                const pageCount = doc.internal.getNumberOfPages();
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+                doc.setTextColor(90, 90, 90);
+                doc.text(`Seite ${data.pageNumber} von ${pageCount}`, pageWidth - margins.right, pageHeight - 20, { align: 'right' });
             }
         });
 
-        const prod = (document.getElementById('productionTitle')?.value || 'Shotlist').trim();
-        const date = (document.getElementById('date')?.value || '').trim();
-        const fileName = `${prod || 'Shotlist'}${date ? ' – ' + date : ''}.pdf`;
+        const prod = headerData.title || 'Shotlist';
+        const date = safeFieldValue('#date');
+        const fileName = `${prod}${date ? ' – ' + date : ''}.pdf`;
         doc.save(fileName);
     });
 }

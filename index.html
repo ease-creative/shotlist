@@ -4194,6 +4194,7 @@ function updateSceneSummary(summaryData) {
             `;
         } else if (entry.type === 'scene-summary') {
             row.classList.add('scene-summary-row-scene');
+            row.dataset.rowType = 'scene';
             row.innerHTML = `
                 <td>${entry.label}</td>
                 <td>${entry.shotCount}</td>
@@ -4204,6 +4205,7 @@ function updateSceneSummary(summaryData) {
             `;
         } else if (entry.type === 'shotgroup') {
             row.classList.add('scene-summary-row-shotgroup');
+            row.dataset.rowType = 'block';
             row.innerHTML = `
                 <td><span class="scene-summary-row-shotgroup-label">${entry.label}</span></td>
                 <td>${entry.shotCount}</td>
@@ -4218,6 +4220,10 @@ function updateSceneSummary(summaryData) {
                 : entry.location || '—';
             if (entry.type === 'scene') {
                 row.classList.add('scene-summary-row-scene');
+                row.dataset.rowType = 'scene';
+            }
+            if (entry.type === 'location') {
+                row.dataset.rowType = 'scene';
             }
             
             row.innerHTML = `
@@ -5291,6 +5297,24 @@ function getPdfRowStyle(type) {
     }
 }
 
+function getSceneOverviewRowStyle(type) {
+    const gray = (value) => [value, value, value];
+    switch (type) {
+        case 'scene':
+            return { fillColor: gray(235), fontStyle: 'bold' };
+        case 'block':
+            return { fillColor: gray(245), fontStyle: 'normal' };
+        case 'start':
+        case 'pause':
+        case 'wrap':
+            return { fillColor: gray(250), fontStyle: 'italic' };
+        case 'umbau':
+            return { fillColor: gray(220), fontStyle: 'normal' };
+        default:
+            return null;
+    }
+}
+
 function determineRowType(row) {
     if (!row) return '';
     if (row.dataset && row.dataset.rowType) {
@@ -5409,14 +5433,14 @@ const SCENE_SUMMARY_MODE_LABELS = {
 };
 
 const SCENE_SUMMARY_COLUMN_WEIGHTS = {
-    'szene': 1.2,
-    'scene': 1.2,
-    'location': 1.3,
-    'shots': 0.9,
-    'shot-liste': 2.4,
-    'drehzeit': 1.2,
-    'gesamtdauer': 1,
-    'szenen': 1.1
+    'szene': 1.3,
+    'scene': 1.3,
+    'location': 1.6,
+    'shots': 0.8,
+    'shot-liste': 3.0,
+    'drehzeit': 0.7,
+    'gesamtdauer': 0.7,
+    'szenen': 1.4
 };
 
 function collectSceneSummaryTableData() {
@@ -5652,20 +5676,28 @@ async function exportToPDF() {
             const raw = data.row.raw || {};
             const rowType = raw.rowType || '';
             const applyZebra = raw.__applyZebra;
-            const pdfStyle = getPdfRowStyle(rowType);
-            if (pdfStyle) {
-                if (pdfStyle.fillColor) data.cell.styles.fillColor = pdfStyle.fillColor;
-                if (pdfStyle.textColor) data.cell.styles.textColor = pdfStyle.textColor;
-                data.cell.styles.fontStyle = pdfStyle.fontStyle || 'normal';
-                return;
+            const context = raw.__context || 'shots';
+            if (context === 'summary') {
+                const overviewStyle = getSceneOverviewRowStyle(rowType);
+                if (overviewStyle) {
+                    if (overviewStyle.fillColor) data.cell.styles.fillColor = overviewStyle.fillColor;
+                    if (overviewStyle.textColor) data.cell.styles.textColor = overviewStyle.textColor;
+                    data.cell.styles.fontStyle = overviewStyle.fontStyle || 'normal';
+                    return;
+                }
+            } else {
+                const pdfStyle = getPdfRowStyle(rowType);
+                if (pdfStyle) {
+                    if (pdfStyle.fillColor) data.cell.styles.fillColor = pdfStyle.fillColor;
+                    if (pdfStyle.textColor) data.cell.styles.textColor = pdfStyle.textColor;
+                    data.cell.styles.fontStyle = pdfStyle.fontStyle || 'normal';
+                    return;
+                }
             }
 
-            let palette = null;
-            if (applyZebra) {
+            if (context !== 'summary' && applyZebra) {
                 const index = raw.__rowIndex || 0;
-                palette = (index % 2 === 0) ? PDF_ROW_STYLES.shotEven : PDF_ROW_STYLES.shotOdd;
-            }
-            if (palette) {
+                const palette = (index % 2 === 0) ? PDF_ROW_STYLES.shotEven : PDF_ROW_STYLES.shotOdd;
                 if (palette.fill) data.cell.styles.fillColor = palette.fill;
                 if (palette.text) data.cell.styles.textColor = palette.text;
             }
@@ -5695,7 +5727,7 @@ async function exportToPDF() {
         });
 
         const tableBody = tableData.rows.map((row, idx) => {
-            const rowData = { rowType: row.type || 'shot', __rowIndex: idx, __applyZebra: true };
+            const rowData = { rowType: row.type || 'shot', __rowIndex: idx, __applyZebra: true, __context: 'shots' };
             tableColumns.forEach((column, colIdx) => {
                 rowData[column.dataKey] = row.cells[colIdx] || '';
             });
@@ -5762,7 +5794,10 @@ async function exportToPDF() {
             });
 
             const summaryBody = summaryData.rows.map((row, idx) => {
-                const raw = { rowType: row.type || '', __rowIndex: idx, __applyZebra: false };
+                let rowType = row.type || '';
+                if (rowType === 'shotgroup') rowType = 'block';
+                if (rowType === 'scene-summary' || rowType === 'location') rowType = 'scene';
+                const raw = { rowType, __rowIndex: idx, __applyZebra: false, __context: 'summary' };
                 summaryColumns.forEach((column, colIdx) => {
                     raw[column.dataKey] = row.cells[colIdx] || '';
                 });
@@ -5783,7 +5818,7 @@ async function exportToPDF() {
                 doc.text(summaryTitle, summaryTitleX, summaryTitleY);
                 summaryTitleY += 8;
 
-                const summaryBaseFontSize = summaryBody.length > 24 ? 8 : 9;
+                const summaryBaseFontSize = summaryBody.length > 24 ? 7 : 8;
 
                 doc.autoTable({
                     startY: summaryTitleY,

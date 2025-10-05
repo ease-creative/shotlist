@@ -1901,6 +1901,7 @@
                 <button type="button" class="btn btn-project-secondary" id="columnMenuButton">Spalten</button>
                 <button class="btn btn-project-secondary" onclick="exportProject()">Export</button>
                 <button class="btn btn-project-secondary" onclick="document.getElementById('projectImportInput').click()">Import</button>
+                <button class="btn btn-project-secondary" onclick="clearAllData()">Clear All</button>
                 <input type="file" id="projectImportInput" accept="application/json" style="display:none" onchange="importProjectFile(event)">
             </div>
             <div class="action-controls">
@@ -1910,7 +1911,7 @@
                 <button class="btn btn-start" onclick="addStart()">START</button>
                 <button class="btn btn-umbau" onclick="addUmbau()">UMBAU</button>
                 <div class="reset-group">
-                    <button class="btn btn-danger" onclick="clearAll()" id="resetButton">Reset</button>
+                    <button class="btn btn-danger" onclick="clearAll()" id="resetButton">Reset Shots</button>
                     <button class="btn btn-undo" id="undoResetButton" style="display:none;" onclick="undoClear()">Rückgängig</button>
                 </div>
             </div>
@@ -6073,6 +6074,67 @@ function clearReferenceImage(upload, { skipSave = false } = {}) {
         populatePrintReferences();
         saveState();
     }
+}
+
+function clearAllData() {
+    const confirmed = confirm('Möchtest du wirklich ALLE Inhalte löschen? Dieser Vorgang kann nicht rückgängig gemacht werden.');
+    if (!confirmed) return;
+
+    closeImageOverlay();
+    if (typeof closeColumnOverlay === 'function' && columnOverlayVisible) {
+        closeColumnOverlay();
+    }
+
+    lastResetState = null;
+    updateUndoButtonVisibility(false);
+    clearSelection();
+    lastEditedRow = null;
+    selectedRows = new Set();
+    lastSelectedAnchor = null;
+    draggingRows = [];
+    draggedRow = null;
+    activeImagePreview = null;
+
+    const tbody = document.getElementById('shotlistBody');
+    if (tbody) {
+        tbody.innerHTML = '';
+    }
+
+    document.querySelectorAll('.reference-upload').forEach(upload => {
+        clearReferenceImage(upload, { skipSave: true });
+    });
+
+    ['clientName','productionTitle','location','director','date','cinematographer','agency','startTime','wrapTime'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.value = '';
+        }
+    });
+
+    const projectImportInput = document.getElementById('projectImportInput');
+    if (projectImportInput) {
+        projectImportInput.value = '';
+    }
+
+    populatePrintReferences();
+
+    setAppState(createEmptyAppState());
+    setCurrentProjectId('');
+    setCurrentVersionId('');
+    clearLocalAppState();
+
+    columnSettings = getDefaultColumnSettings();
+    applyColumnSettings(columnSettings, false);
+
+    updateProjectSelect();
+    updateVersionSelect();
+
+    refreshPreviewValues();
+    calculateTime();
+
+    recordCurrentSnapshot();
+
+    showNotification('Alle Inhalte gelöscht.');
 }
 
 function openImageOverlay(img) {

@@ -961,24 +961,24 @@
             word-break: break-word;
         }
 
-        .scene-summary-table tbody tr.row--start td,
-        .scene-summary-table tbody tr.row--wrap td {
-            background: #f5f5f5 !important;
-            color: #1f1f1f;
-            font-weight: 500;
+        .scene-summary-table tbody tr.row--start td {
+            background-color: #194559 !important;
+            color: #ffffff !important;
         }
 
         .scene-summary-table tbody tr.row--pause td {
-            background: #f0f0f0 !important;
-            color: #1f1f1f;
-            font-weight: 500;
-            font-style: italic;
+            background-color: #85701b !important;
+            color: #ffffff !important;
+        }
+
+        .scene-summary-table tbody tr.row--wrap td {
+            background-color: #372050 !important;
+            color: #ffffff !important;
         }
 
         .scene-summary-table tbody tr.row--umbau td {
-            background: #ececec !important;
-            color: #1f1f1f;
-            font-weight: 500;
+            background-color: #5a3a0a !important;
+            color: #ffffff !important;
         }
 
         .scene-summary-header {
@@ -1026,14 +1026,14 @@
         }
         
         .shotlist-table th {
-            background: var(--color-table-header-bg);
-            color: var(--color-table-header-text);
+            background: #1e1e1e;
+            color: #ffffff;
             padding: 12px 8px;
             text-align: center;
-            font-weight: 600;
+            font-weight: 700;
             font-size: 13px;
             white-space: nowrap;
-            border-right: 1px solid var(--color-border);
+            border-right: 1px solid #222;
         }
         
         .shotlist-table th:last-child {
@@ -1042,8 +1042,8 @@
         
         .shotlist-table td {
             padding: 8px;
-            border-bottom: 1px solid var(--color-border);
-            border-right: 1px solid var(--color-border);
+            border-bottom: 1px solid #222;
+            border-right: 1px solid #222;
             vertical-align: top;
             background: var(--color-bg-secondary);
         }
@@ -1331,24 +1331,30 @@
             position: relative;
         }
 
-        .shotlist-table tbody tr.row--start td,
-        .shotlist-table tbody tr.row--wrap td {
-            background: rgba(255, 255, 255, 0.06) !important;
-            font-weight: 500;
-            color: var(--color-text-primary);
+        .shotlist-table tbody tr.shot-row td {
+            background-color: #121212 !important;
+            color: #e0e0e0 !important;
+            border-bottom: 1px solid #222 !important;
+        }
+
+        .shotlist-table tbody tr.row--start td {
+            background-color: #194559 !important;
+            color: #ffffff !important;
         }
 
         .shotlist-table tbody tr.row--pause td {
-            background: rgba(255, 255, 255, 0.08) !important;
-            font-weight: 500;
-            font-style: italic;
-            color: var(--color-text-primary);
+            background-color: #85701b !important;
+            color: #ffffff !important;
+        }
+
+        .shotlist-table tbody tr.row--wrap td {
+            background-color: #372050 !important;
+            color: #ffffff !important;
         }
 
         .shotlist-table tbody tr.row--umbau td {
-            background: rgba(255, 255, 255, 0.10) !important;
-            font-weight: 500;
-            color: var(--color-text-primary);
+            background-color: #5a3a0a !important;
+            color: #ffffff !important;
         }
 
         .special-label-cell {
@@ -5269,6 +5275,22 @@ const PDF_ROW_STYLES = {
 
 const SPECIAL_ROW_TYPES = ['start', 'pause', 'wrap', 'umbau'];
 
+function getPdfRowStyle(type) {
+    const gray = (value) => [value, value, value];
+    switch (type) {
+        case 'start':
+            return { fillColor: gray(245), fontStyle: 'normal' };
+        case 'pause':
+            return { fillColor: gray(235), fontStyle: 'italic' };
+        case 'wrap':
+            return { fillColor: gray(245), fontStyle: 'normal' };
+        case 'umbau':
+            return { fillColor: gray(230), fontStyle: 'normal' };
+        default:
+            return null;
+    }
+}
+
 function determineRowType(row) {
     if (!row) return '';
     if (row.dataset && row.dataset.rowType) {
@@ -5630,20 +5652,24 @@ async function exportToPDF() {
             const raw = data.row.raw || {};
             const rowType = raw.rowType || '';
             const applyZebra = raw.__applyZebra;
+            const pdfStyle = getPdfRowStyle(rowType);
+            if (pdfStyle) {
+                if (pdfStyle.fillColor) data.cell.styles.fillColor = pdfStyle.fillColor;
+                if (pdfStyle.textColor) data.cell.styles.textColor = pdfStyle.textColor;
+                data.cell.styles.fontStyle = pdfStyle.fontStyle || 'normal';
+                return;
+            }
+
             let palette = null;
-            if (rowType && SPECIAL_ROW_TYPES.includes(rowType)) {
-                palette = PDF_ROW_STYLES[rowType] || null;
-            } else if (applyZebra) {
+            if (applyZebra) {
                 const index = raw.__rowIndex || 0;
                 palette = (index % 2 === 0) ? PDF_ROW_STYLES.shotEven : PDF_ROW_STYLES.shotOdd;
             }
             if (palette) {
                 if (palette.fill) data.cell.styles.fillColor = palette.fill;
                 if (palette.text) data.cell.styles.textColor = palette.text;
-                data.cell.styles.fontStyle = palette.fontStyle || 'normal';
-            } else {
-                data.cell.styles.fontStyle = 'normal';
             }
+            data.cell.styles.fontStyle = 'normal';
         };
 
         const availableWidth = contentWidth;
@@ -6530,9 +6556,9 @@ function joinWithSceneSeparators(labels) {
             line-height: 1.25;
         }
         .shotlist-table thead th {
-            background: var(--color-table-header-bg) !important;
-            color: var(--color-table-header-text) !important;
-            font-weight: 600;
+            background: #1e1e1e !important;
+            color: #ffffff !important;
+            font-weight: 700;
             border-right: 1px solid var(--color-border);
             padding: 12px 8px;
             font-size: 13px;
@@ -6545,11 +6571,11 @@ function joinWithSceneSeparators(labels) {
         }
         .shotlist-table tbody td {
             padding: 8px;
-            border-bottom: 1px solid var(--color-border);
-            border-right: 1px solid var(--color-border);
+            border-bottom: 1px solid #222;
+            border-right: 1px solid #222;
             vertical-align: top;
-            background: var(--color-bg-secondary);
-            color: var(--color-text-primary);
+            background-color: #121212;
+            color: #e0e0e0;
             white-space: normal;
             overflow: visible;
             word-break: break-word;
@@ -6561,28 +6587,26 @@ function joinWithSceneSeparators(labels) {
         .shotlist-table td {
             line-height: 1.4;
         }
-        .shotlist-table tbody tr.shot-row:nth-of-type(odd) td {
-            background: var(--color-bg-secondary);
+        .shotlist-table tbody tr.shot-row td {
+            background-color: #121212 !important;
+            color: #e0e0e0 !important;
+            border-bottom: 1px solid #222 !important;
         }
-        .shotlist-table tbody tr.shot-row:nth-of-type(even) td {
-            background: var(--color-table-row-alt);
-        }
-        .shotlist-table tbody tr.row--start td,
-        .shotlist-table tbody tr.row--wrap td {
-            background: rgba(0, 0, 0, 0.06) !important;
-            color: var(--color-text-primary) !important;
-            font-weight: 500;
+        .shotlist-table tbody tr.row--start td {
+            background-color: #194559 !important;
+            color: #ffffff !important;
         }
         .shotlist-table tbody tr.row--pause td {
-            background: rgba(0, 0, 0, 0.08) !important;
-            color: var(--color-text-primary) !important;
-            font-weight: 500;
-            font-style: italic;
+            background-color: #85701b !important;
+            color: #ffffff !important;
+        }
+        .shotlist-table tbody tr.row--wrap td {
+            background-color: #372050 !important;
+            color: #ffffff !important;
         }
         .shotlist-table tbody tr.row--umbau td {
-            background: rgba(0, 0, 0, 0.1) !important;
-            color: var(--color-text-primary) !important;
-            font-weight: 500;
+            background-color: #5a3a0a !important;
+            color: #ffffff !important;
         }
         body.printing-active .shotlist-table select,
         body.printing-active .shotlist-table textarea,
@@ -6608,8 +6632,8 @@ function joinWithSceneSeparators(labels) {
             table-layout: auto;
         }
         .scene-summary-table thead th {
-            background: var(--color-table-header-bg) !important;
-            color: var(--color-table-header-text) !important;
+            background: #1e1e1e !important;
+            color: #ffffff !important;
             border: 1px solid var(--color-border);
             padding: 12px 8px;
             font-size: 13px;
@@ -6638,22 +6662,21 @@ function joinWithSceneSeparators(labels) {
         .scene-summary-row-shotgroup td:first-child {
             color: var(--color-text-secondary);
         }
-        .scene-summary-table tbody tr.row--start td,
-        .scene-summary-table tbody tr.row--wrap td {
-            background: #f5f5f5 !important;
-            color: #1f1f1f !important;
-            font-weight: 500;
+        .scene-summary-table tbody tr.row--start td {
+            background-color: #194559 !important;
+            color: #ffffff !important;
         }
         .scene-summary-table tbody tr.row--pause td {
-            background: #f0f0f0 !important;
-            color: #1f1f1f !important;
-            font-weight: 500;
-            font-style: italic;
+            background-color: #85701b !important;
+            color: #ffffff !important;
+        }
+        .scene-summary-table tbody tr.row--wrap td {
+            background-color: #372050 !important;
+            color: #ffffff !important;
         }
         .scene-summary-table tbody tr.row--umbau td {
-            background: #ececec !important;
-            color: #1f1f1f !important;
-            font-weight: 500;
+            background-color: #5a3a0a !important;
+            color: #ffffff !important;
         }
     </style>
 </body>

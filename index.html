@@ -5805,13 +5805,8 @@ async function exportToPDF() {
                 if (palette.text) data.cell.styles.textColor = palette.text;
             }
             let fontStyle = 'normal';
-            if (raw.__parallel && raw.__parallelColumnKey && data.column && data.column.dataKey === raw.__parallelColumnKey) {
+            if (raw.__parallel && context !== 'summary' && rowType === 'shot') {
                 data.cell.styles.fillColor = [242, 242, 242];
-                data.cell.styles.textColor = [40, 40, 40];
-                data.cell.styles.lineColor = [200, 200, 200];
-                if (!data.cell.styles.lineWidth || data.cell.styles.lineWidth < 0.4) {
-                    data.cell.styles.lineWidth = 0.4;
-                }
                 fontStyle = 'italic';
             }
             data.cell.styles.fontStyle = fontStyle;
@@ -5870,9 +5865,6 @@ async function exportToPDF() {
 
             if (isShotRow && hasValidStartTime && previousShotStartTime && normalizedStartTime === previousShotStartTime) {
                 rowData.__parallel = true;
-                if (timeColumn) {
-                    rowData.__parallelColumnKey = timeColumn.dataKey;
-                }
             }
 
             if (isShotRow) {
@@ -5883,8 +5875,6 @@ async function exportToPDF() {
 
             return rowData;
         });
-
-        const hasParallelShots = tableBody.some(row => row.__parallel);
 
         doc.autoTable({
             startY: tableStartY,
@@ -5916,23 +5906,6 @@ async function exportToPDF() {
             didParseCell: stylePdfCell,
             didDrawPage: renderPageFooter
         });
-
-        let legendBottom = 0;
-        if (hasParallelShots) {
-            const legendText = '*Hell hinterlegte Zeilen: parallele Shots (gleiche Uhrzeit)*';
-            const legendY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 14 : tableStartY + 14;
-            const maxY = pageHeight - margins.bottom;
-            if (legendY <= maxY) {
-                doc.setFont('helvetica', 'italic');
-                doc.setFontSize(9);
-                doc.setTextColor(90, 90, 90);
-                doc.text(legendText, pageWidth / 2, legendY, { align: 'center' });
-                legendBottom = legendY + 10;
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(baseFontSize);
-                doc.setTextColor(40, 40, 40);
-            }
-        }
 
         const summaryData = collectSceneSummaryTableData();
         if (summaryData) {
@@ -5976,9 +5949,6 @@ async function exportToPDF() {
             if (summaryBody.length) {
                 const summaryTitle = `Szenenübersicht – ${summaryData.modeLabel}`;
                 let summaryTitleY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 18 : tableStartY + 18;
-                if (legendBottom) {
-                    summaryTitleY = Math.max(summaryTitleY, legendBottom + 8);
-                }
                 if (summaryTitleY > pageHeight - margins.bottom - 20) {
                     doc.addPage();
                     summaryTitleY = margins.top;

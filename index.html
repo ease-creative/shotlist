@@ -1894,7 +1894,7 @@
             </div>
             <div class="project-controls">
                 <button class="btn btn-project" onclick="saveProject()">Projekt speichern</button>
-                <button class="btn btn-project-secondary" onclick="ladenDaten()" title="Vom Server laden">Vom Server laden</button>
+                <button class="btn btn-project-secondary" onclick="ladenDaten()" title="Lokale Sicherung laden">Lokale Sicherung laden</button>
                 <select id="projectSelect" onchange="loadSelectedProject()" class="project-select" data-preview-ignore="1">
                     <option value="">Projekt laden...</option>
                 </select>
@@ -2016,7 +2016,7 @@
             <form id="versionForm">
                 <h3 id="versionModalTitle">Version speichern</h3>
                 <p class="modal-description">Gib einen eindeutigen Namen für die aktuelle Shotlist-Version ein.</p>
-                <input type="text" id="versionNameInput" class="version-input" placeholder="z.B. Regie-Freigabe" data-server-ignore="1">
+                <input type="text" id="versionNameInput" class="version-input" placeholder="z.B. Regie-Freigabe">
                 <div class="modal-buttons">
                     <button type="button" class="modal-btn secondary" id="versionCancelBtn">Abbrechen</button>
                     <button type="submit" class="modal-btn primary">Speichern</button>
@@ -2757,7 +2757,7 @@ function collectFormFields() {
     const elements = document.querySelectorAll('input, textarea, select');
     elements.forEach(el => {
         if (!el) return;
-        if (el.dataset && (el.dataset.previewIgnore === '1' || el.dataset.serverIgnore === '1')) return;
+        if (el.dataset && el.dataset.previewIgnore === '1') return;
         const identifier = el.id || el.name || el.getAttribute('data-field-key');
         if (!identifier) return;
         if (el.type === 'file') {
@@ -2801,7 +2801,7 @@ function applyFormFields(values) {
             }
         }
         if (!el) return;
-        if (el.dataset && (el.dataset.previewIgnore === '1' || el.dataset.serverIgnore === '1')) return;
+        if (el.dataset && el.dataset.previewIgnore === '1') return;
         if (el.type === 'checkbox') {
             el.checked = !!value;
             el.dispatchEvent(new Event('change'));
@@ -2832,36 +2832,15 @@ async function persistAppState(options = {}) {
     const { silent = false } = options || {};
     const payload = getAppStatePayload();
     try {
-        const response = await fetch('save.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        });
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        let result = null;
-        try {
-            result = await response.json();
-        } catch (err) {
-            result = null;
-        }
-        if (result && typeof result === 'object') {
-            if (result.appState) {
-                setAppState(result.appState);
-                hydrateFromAppState();
-            }
-        }
+        saveAppStateLocally(payload);
         if (!silent) {
             showNotification('Gespeichert ✓');
         }
-        return result;
+        return { appState: cloneAppState(payload), source: 'local' };
     } catch (err) {
-        console.error('Fehler beim Speichern der Daten:', err);
+        console.error('Fehler beim lokalen Speichern der Daten:', err);
         if (!silent) {
-            showNotification('Speichern fehlgeschlagen', true);
+            showNotification('Lokales Speichern fehlgeschlagen', true);
         }
         throw err;
     }
@@ -2874,59 +2853,26 @@ async function speichernDaten(options = {}) {
 async function ladenDaten(options = {}) {
     const { silent = false } = options || {};
     try {
-        const response = await fetch('save.php', {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json'
+        const stored = loadAppStateFromLocalStorage();
+        if (!stored) {
+            if (!silent) {
+                showNotification('Keine lokale Sicherung gefunden', true);
             }
-        });
-        if (!response.ok) {
-            if (response.status === 404 && silent) {
-                return null;
-            }
-            throw new Error(`HTTP ${response.status}`);
+            return null;
         }
-        let data = null;
-        try {
-            data = await response.json();
-        } catch (err) {
-            data = null;
-        }
-        let incomingState;
-        if (data && data.appState) {
-            incomingState = ensureAppState(data.appState);
-        } else if (data) {
-            incomingState = ensureAppState(data);
-        } else {
-            incomingState = createEmptyAppState();
-        }
-        const localStamp = appState && appState.lastSavedAt ? Date.parse(appState.lastSavedAt) : 0;
-        const incomingStamp = incomingState && incomingState.lastSavedAt ? Date.parse(incomingState.lastSavedAt) : 0;
-        if (localStamp && incomingStamp && localStamp > incomingStamp) {
-            console.debug('Serverdaten älter als lokale Daten – lokale Version wird behalten.');
-            return data;
-        }
+        const incomingState = ensureAppState(stored.appState ? stored.appState : stored);
         setAppState(incomingState);
         hydrateFromAppState();
         if (!silent) {
-            showNotification('Daten geladen');
+            showNotification('Lokale Sicherung geladen');
         }
-        return data;
+        return { appState: cloneAppState(incomingState), source: 'local' };
     } catch (err) {
-        console.error('Fehler beim Laden der Daten:', err);
-        const fallbackState = loadAppStateFromLocalStorage();
-        if (fallbackState) {
-            setAppState(fallbackState);
-            hydrateFromAppState();
-            if (!silent) {
-                showNotification('Lokale Version geladen');
-            }
-            return fallbackState;
-        }
+        console.error('Fehler beim Laden der lokalen Daten:', err);
         if (!silent) {
-            showNotification('Laden fehlgeschlagen', true);
+            showNotification('Lokales Laden fehlgeschlagen', true);
         }
-        return null;
+        throw err;
     }
 }
 
@@ -3000,19 +2946,14 @@ async function saveProject() {
     project.name = name;
     setCurrentProjectId(project.id);
     recordCurrentSnapshot();
-    showNotification('Lokale Version gespeichert');
     setCurrentVersionId(project.activeVersionId || '');
     updateProjectSelect();
-    let serverError = null;
     try {
         await persistAppState({ silent: true });
+        showNotification('Projekt lokal gespeichert ✓');
     } catch (err) {
-        serverError = err;
-    }
-    if (serverError) {
-        showNotification('Lokale Änderungen gespeichert – Server nicht erreichbar', true);
-    } else {
-        showNotification('Projekt gespeichert! ✓');
+        console.error('Projekt konnte nicht lokal gesichert werden:', err);
+        showNotification('Projekt konnte nicht lokal gespeichert werden', true);
     }
 }
 
@@ -3116,8 +3057,8 @@ function importProjectFile(event) {
             updateProjectSelect();
             updateVersionSelect();
             persistAppState({ silent: true }).catch(err => {
-                console.debug('Import konnte nicht auf dem Server gespeichert werden:', err);
-                showNotification('Import lokal gespeichert – Server nicht erreichbar', true);
+                console.debug('Import konnte nicht lokal gespeichert werden:', err);
+                showNotification('Import konnte nicht lokal gespeichert werden', true);
             });
             showNotification('Projekt importiert!');
         } catch (err) {
@@ -6378,8 +6319,8 @@ function handleVersionFormSubmit(evt) {
     setActiveVersion(id);
     updateVersionSelect();
     persistAppState({ silent: true }).catch(err => {
-        console.debug('Version konnte nicht zum Server gespeichert werden:', err);
-        showNotification('Version lokal gespeichert – Server nicht erreichbar', true);
+        console.debug('Version konnte nicht lokal gespeichert werden:', err);
+        showNotification('Version konnte nicht lokal gespeichert werden', true);
     });
     showNotification('Version gespeichert!');
     closeVersionModal();
@@ -6462,8 +6403,8 @@ function deleteSelectedVersion() {
     }
     updateVersionSelect();
     persistAppState({ silent: true }).catch(err => {
-        console.debug('Version konnte nicht vom Server gelöscht werden:', err);
-        showNotification('Version lokal gelöscht – Server nicht erreichbar', true);
+        console.debug('Version konnte nicht lokal gelöscht werden:', err);
+        showNotification('Version konnte nicht lokal gelöscht werden', true);
     });
     showNotification('Version gelöscht!');
 }
@@ -6587,7 +6528,7 @@ window.onload = function() {
     document.querySelectorAll('#shotlistBody tr').forEach(registerRow);
     document.addEventListener('click', handleDocumentClick);
     Promise.resolve().then(() => ladenDaten({ silent: true })).catch(err => {
-        console.debug('Serverdaten konnten beim Start nicht geladen werden:', err);
+        console.debug('Lokale Daten konnten beim Start nicht geladen werden:', err);
     });
 };
 

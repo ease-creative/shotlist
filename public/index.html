@@ -515,6 +515,15 @@
             background: #48297d;
         }
 
+        .btn-project-danger {
+            background: #b32533;
+            color: var(--color-btn-text);
+        }
+
+        .btn-project-danger:hover {
+            background: #971f2a;
+        }
+
         .btn-project-secondary {
             background: var(--color-btn-bg);
             color: var(--color-btn-text);
@@ -1930,7 +1939,7 @@
             </div>
             <div class="project-controls">
                 <button class="btn btn-project" onclick="saveProject()">Projekt speichern</button>
-                <button class="btn btn-project-secondary" onclick="ladenDaten()" title="Lokale Sicherung laden">Lokale Sicherung laden</button>
+                <button class="btn btn-project-danger" onclick="deleteCurrentProject()" title="Ausgewähltes Projekt löschen">Projekt löschen</button>
                 <select id="projectSelect" onchange="loadSelectedProject()" class="project-select" data-preview-ignore="1">
                     <option value="">Projekt laden...</option>
                 </select>
@@ -3020,6 +3029,90 @@ async function saveProject() {
     } catch (err) {
         console.error('❌ Fehler beim Server-Sync:', err);
         showNotification('Server-Speichern fehlgeschlagen', true);
+    }
+}
+
+async function deleteCurrentProject() {
+    const select = document.getElementById('projectSelect');
+    const selectedId = select && select.value ? select.value : '';
+    const projectId = selectedId || getActiveProjectId();
+    if (!projectId) {
+        showNotification('Bitte zuerst ein Projekt auswählen.', true);
+        return;
+    }
+    const project = findProjectById(projectId);
+    if (!project) {
+        showNotification('Projekt konnte nicht gefunden werden.', true);
+        updateProjectSelect();
+        return;
+    }
+    const displayName = project.name && project.name.trim() ? project.name.trim() : 'Unbenanntes Projekt';
+    const confirmed = confirm(`Projekt "${displayName}" wirklich löschen? Dieser Vorgang kann nicht rückgängig gemacht werden.`);
+    if (!confirmed) return;
+
+    const idx = appState.projects.findIndex(p => p && p.id === projectId);
+    if (idx === -1) {
+        showNotification('Projekt konnte nicht gelöscht werden.', true);
+        return;
+    }
+
+    const [removedProject] = appState.projects.splice(idx, 1);
+
+    let nextActiveId = '';
+    if (appState.projects.length) {
+        nextActiveId = appState.projects[0].id;
+    }
+
+    if (getActiveProjectId() === projectId) {
+        setCurrentProjectId(nextActiveId);
+        setCurrentVersionId('');
+    } else if (getActiveProjectId() && !findProjectById(getActiveProjectId())) {
+        setCurrentProjectId(nextActiveId);
+        setCurrentVersionId('');
+    }
+
+    if (!getActiveProjectId()) {
+        appState.draft = ensureDraftShape({});
+    }
+
+    appState.lastSavedAt = new Date().toISOString();
+    saveAppStateLocally(appState);
+
+    if (getActiveProjectId()) {
+        hydrateFromAppState();
+    } else {
+        clearAllData({ skipConfirm: true, skipNotification: true });
+        updateProjectSelect();
+        updateVersionSelect();
+        saveAppStateLocally(appState);
+    }
+
+    let serverError = null;
+    if (removedProject && removedProject.name) {
+        try {
+            const response = await fetch('/api/deleteProject', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: removedProject.name })
+            });
+            if (!response.ok) {
+                let payload = null;
+                try {
+                    payload = await response.json();
+                } catch (err) {}
+                const message = payload && payload.error ? payload.error : 'Unbekannter Serverfehler';
+                throw new Error(message);
+            }
+        } catch (err) {
+            serverError = err;
+            console.error('❌ Fehler beim Server-Löschen:', err);
+        }
+    }
+
+    if (serverError) {
+        showNotification('Projekt lokal gelöscht, Server-Löschen fehlgeschlagen', true);
+    } else {
+        showNotification('Projekt gelöscht!');
     }
 }
 
@@ -6190,8 +6283,9 @@ function clearReferenceImage(upload, { skipSave = false } = {}) {
     }
 }
 
-function clearAllData() {
-    const confirmed = confirm('Möchtest du wirklich ALLE Inhalte löschen? Dieser Vorgang kann nicht rückgängig gemacht werden.');
+function clearAllData(options = {}) {
+    const { skipConfirm = false, skipNotification = false } = options || {};
+    const confirmed = skipConfirm || confirm('Möchtest du wirklich ALLE Inhalte löschen? Dieser Vorgang kann nicht rückgängig gemacht werden.');
     if (!confirmed) return;
 
     closeImageOverlay();
@@ -6242,7 +6336,9 @@ function clearAllData() {
     updateProjectSelect();
     updateVersionSelect();
 
-    showNotification('Aktive Version geleert.');
+    if (!skipNotification) {
+        showNotification('Aktive Version geleert.');
+    }
 }
 
 function openImageOverlay(img) {

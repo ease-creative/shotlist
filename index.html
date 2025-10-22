@@ -2948,24 +2948,42 @@ async function saveProject() {
     recordCurrentSnapshot();
     setCurrentVersionId(project.activeVersionId || '');
     updateProjectSelect();
+    let localError = null;
     try {
         await persistAppState({ silent: true });
         showNotification('Projekt lokal gespeichert ✓');
+    } catch (err) {
+        localError = err;
+        console.error('Projekt konnte nicht lokal gespeichert werden:', err);
+        showNotification('Projekt konnte nicht lokal gespeichert werden', true);
+    }
 
-        fetch("/api/saveProject", {
+    if (localError) return;
+
+    try {
+        const response = await fetch("/api/saveProject", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                name: document.getElementById("clientName").value || "Unbenannt",
-                data: appState
+                name,
+                data: cloneAppState(appState)
             })
-        })
-        .then(res => res.json())
-        .then(data => console.log("Serverantwort:", data))
-        .catch(err => console.error("Fehler beim Speichern:", err));
+        });
+        let result = null;
+        try {
+            result = await response.json();
+        } catch (parseErr) {
+            throw new Error('Antwort des Servers konnte nicht gelesen werden');
+        }
+        if (!response.ok) {
+            const message = result && result.error ? result.error : 'Unbekannter Serverfehler';
+            throw new Error(message);
+        }
+        console.log("✅ Projekt auf Server gespeichert", result);
+        showNotification('Projekt auf Server gespeichert ✓');
     } catch (err) {
-        console.error('Projekt konnte nicht lokal gesichert werden:', err);
-        showNotification('Projekt konnte nicht lokal gespeichert werden', true);
+        console.error('❌ Fehler beim Server-Sync:', err);
+        showNotification('Server-Speichern fehlgeschlagen', true);
     }
 }
 

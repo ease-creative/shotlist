@@ -1,0 +1,14 @@
+{
+  "name": "shotlist",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "vercel build",
+    "start": "vercel start"
+  },
+  "dependencies": {
+    "@vercel/postgres": "^0.8.0"
+  }
+}

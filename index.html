@@ -115,6 +115,38 @@
             gap: 14px;
             align-items: flex-end;
         }
+        .server-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+        }
+        .server-status .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--color-border);
+            transition: background-color 0.3s ease;
+        }
+        .server-status[data-status="online"] .status-dot {
+            background: #2ecc71;
+        }
+        .server-status[data-status="offline"] .status-dot {
+            background: #e74c3c;
+        }
+        .server-status[data-status="checking"] .status-dot {
+            background: #f1c40f;
+        }
+        .server-status .status-text {
+            transition: color 0.3s ease;
+        }
+        .server-status[data-status="online"] .status-text {
+            color: #9ae5af;
+        }
+        .server-status[data-status="offline"] .status-text {
+            color: #ff8a80;
+        }
 
         .stat-cards {
             display: flex;
@@ -1833,6 +1865,10 @@
                         <label>Wrap:</label>
                         <input type="time" id="wrapTime" value="18:00" onchange="calculateTime()" oninput="calculateTime()">
                     </div>
+                    <div class="server-status" id="serverStatus" data-status="checking" aria-live="polite">
+                        <span class="status-dot" aria-hidden="true"></span>
+                        <span class="status-text">Verbindung prüfen…</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3167,6 +3203,19 @@ let previewSpanCounter = 0;
 const SCENE_SUMMARY_MODES = ['scene', 'plan', 'location'];
 
 const COLUMN_SETTINGS_KEY = 'shotlist-column-settings';
+const SERVER_STATUS_ENDPOINT = '/api/ping';
+const SERVER_STATUS_INTERVAL = 15000;
+const SERVER_STATUS_TEXT = {
+    online: 'Online',
+    offline: 'Offline',
+    checking: 'Verbindung prüfen…'
+};
+const SERVER_STATUS_ANNOUNCE = {
+    online: 'Server verbunden',
+    offline: 'Server offline',
+    checking: 'Verbindung wird geprüft'
+};
+let serverStatusTimer = null;
 
 function buildSelectOptions(options, selected, placeholder = '', keepUnknown = true) {
     const value = selected || '';
@@ -3182,6 +3231,61 @@ function buildSelectOptions(options, selected, placeholder = '', keepUnknown = t
         entries.push({value, label:value});
     }
     return entries.map(opt => `<option value="${opt.value}" ${opt.value===value ? 'selected' : ''}>${opt.label}</option>`).join('');
+}
+
+function getServerStatusElement() {
+    return document.getElementById('serverStatus');
+}
+
+function setServerStatus(state) {
+    const el = getServerStatusElement();
+    if (!el) return;
+    const status = Object.prototype.hasOwnProperty.call(SERVER_STATUS_TEXT, state) ? state : 'checking';
+    el.setAttribute('data-status', status);
+    const textEl = el.querySelector('.status-text');
+    if (textEl) {
+        textEl.textContent = SERVER_STATUS_TEXT[status] || '';
+    }
+    const announce = SERVER_STATUS_ANNOUNCE[status];
+    if (announce) {
+        el.setAttribute('aria-label', `Serverstatus: ${announce}`);
+        el.setAttribute('title', announce);
+    }
+}
+
+async function checkServerStatus() {
+    const el = getServerStatusElement();
+    if (!el || typeof fetch !== 'function') return;
+    try {
+        const response = await fetch(`${SERVER_STATUS_ENDPOINT}?t=${Date.now()}`, {
+            method: 'GET',
+            cache: 'no-store'
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        try {
+            await response.json();
+        } catch (err) {
+            // Ignoriere JSON-Parsing-Fehler, Ping kann leer sein
+        }
+        setServerStatus('online');
+    } catch (err) {
+        console.debug('Serverstatus-Check fehlgeschlagen:', err);
+        setServerStatus('offline');
+    }
+}
+
+function initServerStatusMonitor() {
+    if (typeof window === 'undefined') return;
+    const el = getServerStatusElement();
+    if (!el || typeof fetch !== 'function') return;
+    setServerStatus('checking');
+    checkServerStatus();
+    if (serverStatusTimer) {
+        clearInterval(serverStatusTimer);
+    }
+    serverStatusTimer = setInterval(checkServerStatus, SERVER_STATUS_INTERVAL);
 }
 
 function getPreviewFields() {
@@ -6551,6 +6655,7 @@ window.onload = function() {
     document.querySelectorAll('textarea.auto-grow').forEach(autoGrow);
     document.querySelectorAll('#shotlistBody tr').forEach(registerRow);
     document.addEventListener('click', handleDocumentClick);
+    initServerStatusMonitor();
     Promise.resolve().then(() => ladenDaten({ silent: true })).catch(err => {
         console.debug('Lokale Daten konnten beim Start nicht geladen werden:', err);
     });

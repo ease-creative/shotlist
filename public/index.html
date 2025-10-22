@@ -2127,24 +2127,12 @@ const LOCAL_APP_STATE_KEY = 'shotlist-app-state';
 let layoutMode = 'compact';
 const LAYOUT_MODE_KEY = 'shotlist-layout-mode';
 
-function saveAppStateLocally(state = appState) {
-    try {
-        const payload = cloneAppState(state);
-        localStorage.setItem(LOCAL_APP_STATE_KEY, JSON.stringify(payload));
-    } catch (err) {
-        console.debug('Lokales Speichern nicht möglich:', err);
-    }
+function saveAppStateLocally() {
+    return null;
 }
 
 function loadAppStateFromLocalStorage() {
-    try {
-        const raw = localStorage.getItem(LOCAL_APP_STATE_KEY);
-        if (!raw) return null;
-        return JSON.parse(raw);
-    } catch (err) {
-        console.debug('Lokales Laden nicht möglich:', err);
-        return null;
-    }
+    return null;
 }
 
 function clearLocalAppState() {
@@ -2246,6 +2234,33 @@ function ensureProjectShape(project) {
     return normalized;
 }
 
+function cloneProject(project) {
+    if (!project || typeof project !== 'object') {
+        return ensureProjectShape({});
+    }
+    try {
+        return JSON.parse(JSON.stringify(project));
+    } catch (err) {
+        console.error('Projekt konnte nicht geklont werden, verwende Normalisierung.', err);
+        return ensureProjectShape(project);
+    }
+}
+
+function normalizeServerProjectEntry(entry) {
+    const base =
+        entry && typeof entry === 'object'
+            ? entry.data ?? entry.project ?? entry
+            : {};
+    const project = ensureProjectShape(base);
+    if (entry && typeof entry.name === 'string' && entry.name.trim()) {
+        project.name = entry.name.trim();
+    }
+    if (entry && entry.updatedAt) {
+        project.updated = entry.updatedAt;
+    }
+    return project;
+}
+
 function ensureVersionShape(version) {
     const normalized = {
         id: generateId('version'),
@@ -2338,7 +2353,6 @@ function recordCurrentSnapshot() {
     } else {
         updateDraftSnapshot(snapshot, formFields);
     }
-    saveAppStateLocally();
     return { snapshot, formFields };
 }
 
@@ -2867,28 +2881,14 @@ function applyFormFields(values) {
 }
 
 function getAppStatePayload() {
-    const snapshotInfo = recordCurrentSnapshot();
+    recordCurrentSnapshot();
     appState.lastSavedAt = new Date().toISOString();
-    saveAppStateLocally();
     return cloneAppState(appState);
 }
 
 async function persistAppState(options = {}) {
-    const { silent = false } = options || {};
     const payload = getAppStatePayload();
-    try {
-        saveAppStateLocally(payload);
-        if (!silent) {
-            showNotification('Gespeichert ✓');
-        }
-        return { appState: cloneAppState(payload), source: 'local' };
-    } catch (err) {
-        console.error('Fehler beim lokalen Speichern der Daten:', err);
-        if (!silent) {
-            showNotification('Lokales Speichern fehlgeschlagen', true);
-        }
-        throw err;
-    }
+    return { appState: payload, source: 'memory' };
 }
 
 async function speichernDaten(options = {}) {
@@ -2896,26 +2896,51 @@ async function speichernDaten(options = {}) {
 }
 
 async function ladenDaten(options = {}) {
-    const { silent = false } = options || {};
+    const { silent = false, preserveCurrent = true } = options || {};
+    const activeId = preserveCurrent ? getActiveProjectId() : '';
     try {
-        const stored = loadAppStateFromLocalStorage();
-        if (!stored) {
-            if (!silent) {
-                showNotification('Keine lokale Sicherung gefunden', true);
-            }
-            return null;
+        const response = await fetch(`${SERVER_PROJECTS_ENDPOINT}`, {
+            method: 'GET',
+            cache: 'no-store'
+        });
+        if (!response.ok) {
+            const message = `HTTP ${response.status}`;
+            throw new Error(message);
         }
-        const incomingState = ensureAppState(stored.appState ? stored.appState : stored);
-        setAppState(incomingState);
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (err) {
+            throw new Error('Antwort des Servers konnte nicht gelesen werden');
+        }
+        const projects = Array.isArray(payload && payload.projects) ? payload.projects : [];
+        const normalized = projects.map(normalizeServerProjectEntry);
+        setProjects(normalized);
+        if (!normalized.length) {
+            setCurrentProjectId('');
+            appState.draft = ensureDraftShape({});
+            clearAllData({ skipConfirm: true, skipNotification: true });
+            updateProjectSelect();
+            updateVersionSelect();
+            if (!silent) {
+                showNotification('Keine Projekte auf dem Server gefunden', true);
+            }
+            return { appState: cloneAppState(appState), source: 'server' };
+        }
+        let targetId = activeId && normalized.some(project => project && project.id === activeId)
+            ? activeId
+            : (normalized[0] ? normalized[0].id : '');
+        setCurrentProjectId(targetId);
         hydrateFromAppState();
         if (!silent) {
-            showNotification('Lokale Sicherung geladen');
+            showNotification('Projekte vom Server geladen');
         }
-        return { appState: cloneAppState(incomingState), source: 'local' };
+        return { appState: cloneAppState(appState), source: 'server' };
     } catch (err) {
-        console.error('Fehler beim Laden der lokalen Daten:', err);
+        console.error('Fehler beim Laden der Server-Daten:', err);
         if (!silent) {
-            showNotification('Lokales Laden fehlgeschlagen', true);
+            const message = err && err.message ? err.message : 'Unbekannter Fehler';
+            showNotification(`Serverladen fehlgeschlagen: ${message}`, true);
         }
         throw err;
     }
@@ -2947,7 +2972,6 @@ function hydrateFromAppState() {
     }
     updateProjectSelect();
     updateVersionSelect();
-    saveAppStateLocally();
 }
 
 function getActiveProjectId() {
@@ -2993,17 +3017,9 @@ async function saveProject() {
     recordCurrentSnapshot();
     setCurrentVersionId(project.activeVersionId || '');
     updateProjectSelect();
-    let localError = null;
-    try {
-        await persistAppState({ silent: true });
-        showNotification('Projekt lokal gespeichert ✓');
-    } catch (err) {
-        localError = err;
-        console.error('Projekt konnte nicht lokal gespeichert werden:', err);
-        showNotification('Projekt konnte nicht lokal gespeichert werden', true);
-    }
-
-    if (localError) return;
+    appState.lastSavedAt = new Date().toISOString();
+    const projectPayload = cloneProject(project);
+    projectPayload.updated = appState.lastSavedAt;
 
     try {
         const response = await fetch("/api/saveProject", {
@@ -3011,7 +3027,7 @@ async function saveProject() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 name,
-                data: cloneAppState(appState)
+                project: projectPayload
             })
         });
         let result = null;
@@ -3024,7 +3040,17 @@ async function saveProject() {
             const message = result && result.error ? result.error : 'Unbekannter Serverfehler';
             throw new Error(message);
         }
-        console.log("✅ Projekt auf Server gespeichert", result);
+        const savedProject = result && result.project ? normalizeServerProjectEntry(result.project) : normalizeServerProjectEntry({ name, project: projectPayload });
+        const idx = appState.projects.findIndex(p => p && p.id === savedProject.id);
+        if (idx >= 0) {
+            appState.projects[idx] = savedProject;
+        } else {
+            appState.projects.unshift(savedProject);
+        }
+        setCurrentProjectId(savedProject.id);
+        await ladenDaten({ silent: true, preserveCurrent: true }).catch(err => {
+            console.debug('Serverdaten konnten nach dem Speichern nicht neu geladen werden:', err);
+        });
         showNotification('Projekt auf Server gespeichert ✓');
     } catch (err) {
         console.error('❌ Fehler beim Server-Sync:', err);
@@ -3079,16 +3105,12 @@ async function deleteCurrentProject() {
         appState.draft = ensureDraftShape({});
     }
 
-    appState.lastSavedAt = new Date().toISOString();
-    saveAppStateLocally(appState);
-
     if (getActiveProjectId()) {
         hydrateFromAppState();
     } else {
         clearAllData({ skipConfirm: true, skipNotification: true });
         updateProjectSelect();
         updateVersionSelect();
-        saveAppStateLocally(appState);
     }
 
     let serverError = null;
@@ -3114,40 +3136,68 @@ async function deleteCurrentProject() {
     }
 
     if (serverError) {
-        showNotification('Projekt lokal gelöscht, Server-Löschen fehlgeschlagen', true);
-    } else {
-        showNotification('Projekt gelöscht!');
+        console.error('❌ Fehler beim Server-Löschen:', serverError);
+        showNotification('Projekt konnte auf dem Server nicht gelöscht werden', true);
+        await ladenDaten({ silent: true, preserveCurrent: false }).catch(err => {
+            console.debug('Serverdaten konnten nach Löschfehler nicht aktualisiert werden:', err);
+        });
+        return;
     }
+
+    await ladenDaten({ silent: true, preserveCurrent: false }).catch(err => {
+        console.debug('Serverdaten konnten nach dem Löschen nicht aktualisiert werden:', err);
+    });
+    showNotification('Projekt gelöscht!');
 }
 
-function loadSelectedProject() {
+async function loadSelectedProject() {
     const select = document.getElementById('projectSelect');
     if (!select) return;
     const projectId = select.value;
     if (!projectId) return;
     const project = findProjectById(projectId);
-    if (!project) {
+    const projectName = project && project.name ? project.name : null;
+    if (!project || !projectName) {
         showNotification('Projekt nicht gefunden.', true);
-        updateProjectSelect();
+        await ladenDaten({ silent: true, preserveCurrent: false }).catch(err => {
+            console.debug('Serverdaten konnten nicht aktualisiert werden:', err);
+        });
         return;
     }
-    setCurrentProjectId(project.id);
-    setCurrentVersionId(project.activeVersionId || '');
-    let ok = false;
-    if (project.snapshot) {
-        ok = loadSnapshot(project.snapshot);
-    } else if (appState.draft && appState.draft.snapshot) {
-        ok = loadSnapshot(appState.draft.snapshot);
+
+    let payload = null;
+    try {
+        const response = await fetch(`${SERVER_PROJECTS_ENDPOINT}?name=${encodeURIComponent(projectName)}`, {
+            method: 'GET',
+            cache: 'no-store'
+        });
+        try {
+            payload = await response.json();
+        } catch (err) {
+            throw new Error('Antwort des Servers konnte nicht gelesen werden');
+        }
+        if (!response.ok) {
+            const message = payload && payload.error ? payload.error : `HTTP ${response.status}`;
+            throw new Error(message);
+        }
+    } catch (err) {
+        console.error('❌ Projekt konnte nicht geladen werden:', err);
+        const message = err && err.message ? err.message : 'Unbekannter Fehler';
+        showNotification(`Projekt konnte nicht geladen werden: ${message}`, true);
+        return;
     }
-    if (!ok) {
-        calculateTime();
+
+    const normalized = payload && payload.project ? normalizeServerProjectEntry(payload.project) : normalizeServerProjectEntry({ name: projectName, project });
+    const idx = appState.projects.findIndex(p => p && p.id === normalized.id);
+    if (idx >= 0) {
+        appState.projects[idx] = normalized;
+    } else {
+        appState.projects.unshift(normalized);
     }
-    if (project.formFields) {
-        applyFormFields(project.formFields);
-    }
-    updateProjectSelect();
-    updateVersionSelect();
-    showNotification(ok ? 'Projekt geladen!' : 'Leeres Projekt geladen');
+    setCurrentProjectId(normalized.id);
+    setCurrentVersionId(normalized.activeVersionId || '');
+    hydrateFromAppState();
+    showNotification('Projekt geladen!');
 }
 
 function exportProject() {
@@ -3219,10 +3269,7 @@ function importProjectFile(event) {
             recordCurrentSnapshot();
             updateProjectSelect();
             updateVersionSelect();
-            persistAppState({ silent: true }).catch(err => {
-                console.debug('Import konnte nicht lokal gespeichert werden:', err);
-                showNotification('Import konnte nicht lokal gespeichert werden', true);
-            });
+            persistAppState({ silent: true });
             showNotification('Projekt importiert!');
         } catch (err) {
             console.error(err);
@@ -3301,6 +3348,7 @@ const SCENE_SUMMARY_MODES = ['scene', 'plan', 'location'];
 
 const COLUMN_SETTINGS_KEY = 'shotlist-column-settings';
 const SERVER_STATUS_ENDPOINT = '/api/ping';
+const SERVER_PROJECTS_ENDPOINT = '/api/projects';
 const SERVER_STATUS_INTERVAL = 15000;
 const SERVER_STATUS_TEXT = {
     online: 'Online',
@@ -6465,9 +6513,7 @@ function saveState({ persist = false } = {}) {
         updateVersionSelect();
     }
     if (persist) {
-        persistAppState({ silent: true }).catch(err => {
-            console.debug('Automatisches Speichern fehlgeschlagen:', err);
-        });
+        persistAppState({ silent: true });
     }
 }
 
@@ -6546,10 +6592,7 @@ function handleVersionFormSubmit(evt) {
     }
     setActiveVersion(id);
     updateVersionSelect();
-    persistAppState({ silent: true }).catch(err => {
-        console.debug('Version konnte nicht lokal gespeichert werden:', err);
-        showNotification('Version konnte nicht lokal gespeichert werden', true);
-    });
+    persistAppState({ silent: true });
     showNotification('Version gespeichert!');
     closeVersionModal();
 }
@@ -6630,10 +6673,7 @@ function deleteSelectedVersion() {
         setActiveVersion('');
     }
     updateVersionSelect();
-    persistAppState({ silent: true }).catch(err => {
-        console.debug('Version konnte nicht lokal gelöscht werden:', err);
-        showNotification('Version konnte nicht lokal gelöscht werden', true);
-    });
+    persistAppState({ silent: true });
     showNotification('Version gelöscht!');
 }
 
@@ -6651,19 +6691,9 @@ function showNotification(msg, error=false) {
 }
 
 // Initialisierung
-window.onload = function() {
-    let hasStoredState = false;
-    const localState = loadAppStateFromLocalStorage();
-    if (localState) {
-        setAppState(localState);
-        hydrateFromAppState();
-        hasStoredState = true;
-        showNotification('Lokale Version geladen');
-    } else {
-        hasStoredState = loadState();
-    }
-    updateVersionSelect();
-    updateProjectSelect();
+window.onload = async function() {
+    initServerStatusMonitor();
+
     let storedLayout = 'compact';
     try {
         const saved = localStorage.getItem(LAYOUT_MODE_KEY);
@@ -6676,6 +6706,7 @@ window.onload = function() {
     saveColumnSettings(columnSettings);
     applyColumnSettings(columnSettings);
     updateColumnOverlayList();
+
     const tbody = document.getElementById('shotlistBody');
     if (tbody) {
         tbody.addEventListener('dragover', handleTableDragOver);
@@ -6683,17 +6714,7 @@ window.onload = function() {
         tbody.addEventListener('input', handleFieldEdited);
         tbody.addEventListener('change', handleFieldEdited);
     }
-    if (!hasStoredState && tbody && tbody.children.length === 0) {
-        console.log('Creating default shots - no stored state found');
-        for (let i = 0; i < 3; i++) {
-            addShot();
-        }
-    } else if (tbody && tbody.children.length === 0) {
-        console.log('No shots found, creating default shots');
-        for (let i = 0; i < 3; i++) {
-            addShot();
-        }
-    }
+
     const columnButton = document.getElementById('columnMenuButton');
     if (columnButton) {
         columnButton.addEventListener('click', toggleColumnOverlay);
@@ -6703,8 +6724,8 @@ window.onload = function() {
         sceneSummaryToggle.addEventListener('click', toggleSceneSummaryMode);
     }
     updateSceneSummaryToggleLabel();
-    // Initial summary build so all views (incl. Locations) have data immediately
     renderSceneSummaryView(sceneSummaryMode);
+
     const imageOverlay = document.getElementById('imageOverlay');
     if (imageOverlay) {
         imageOverlay.addEventListener('click', (evt) => {
@@ -6722,6 +6743,7 @@ window.onload = function() {
         overlayDeleteBtn.addEventListener('click', handleOverlayDelete);
     }
     document.addEventListener('keydown', handleGlobalOverlayKeydown);
+
     document.querySelectorAll('.reference-upload').forEach(upload => {
         const img = upload.querySelector('.image-preview img');
         if (img) {
@@ -6731,13 +6753,14 @@ window.onload = function() {
             upload.classList.remove('has-image');
         }
     });
-    // Inputs speichern
+
     [
         'clientName','productionTitle','location','director','date','cinematographer','agency','startTime','wrapTime'
-    ].forEach(id=>{
+    ].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('change', saveState);
     });
+
     const versionForm = document.getElementById('versionForm');
     if (versionForm) versionForm.addEventListener('submit', handleVersionFormSubmit);
     const versionCancelBtn = document.getElementById('versionCancelBtn');
@@ -6752,13 +6775,28 @@ window.onload = function() {
             closeVersionModal();
         }
     });
+
     document.querySelectorAll('textarea.auto-grow').forEach(autoGrow);
     document.querySelectorAll('#shotlistBody tr').forEach(registerRow);
     document.addEventListener('click', handleDocumentClick);
-    initServerStatusMonitor();
-    Promise.resolve().then(() => ladenDaten({ silent: true })).catch(err => {
-        console.debug('Lokale Daten konnten beim Start nicht geladen werden:', err);
-    });
+
+    try {
+        await ladenDaten({ silent: true, preserveCurrent: false });
+    } catch (err) {
+        console.debug('Serverdaten konnten beim Start nicht geladen werden:', err);
+        clearAllData({ skipConfirm: true, skipNotification: true });
+    }
+
+    updateProjectSelect();
+    updateVersionSelect();
+
+    if (tbody && tbody.children.length === 0) {
+        console.log('Keine Shots vorhanden, lege Standardzeilen an.');
+        for (let i = 0; i < 3; i++) {
+            addShot();
+        }
+        recordCurrentSnapshot();
+    }
 };
 
 function computeSummaryMetrics(summaryData) {

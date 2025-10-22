@@ -2,8 +2,11 @@ import { sql } from '@vercel/postgres';
 
 const connectionString =
   process.env.POSTGRES_URL ||
+  process.env.POSTGRES_PRISMA_URL ||
   process.env.POSTGRES_URL_NON_POOLING ||
-  process.env.DATABASE_URL;
+  process.env.DATABASE_URL ||
+  process.env.NEON_DATABASE_URL ||
+  process.env.NEON_POSTGRES_URL;
 
 if (!process.env.POSTGRES_URL && connectionString) {
   process.env.POSTGRES_URL = connectionString;
@@ -43,10 +46,21 @@ export default async function handler(req, res) {
     await sql`
       CREATE TABLE IF NOT EXISTS shotlist_projects (
         id SERIAL PRIMARY KEY,
-        name TEXT UNIQUE,
-        data JSONB,
-        created_at TIMESTAMP DEFAULT NOW()
+        name TEXT UNIQUE NOT NULL,
+        data JSONB NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
+    `;
+
+    await sql`
+      ALTER TABLE shotlist_projects
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+    `;
+
+    await sql`
+      ALTER TABLE shotlist_projects
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
     `;
 
     const result = await sql`

@@ -2,8 +2,11 @@ import { sql } from '@vercel/postgres';
 
 const connectionString =
   process.env.POSTGRES_URL ||
+  process.env.POSTGRES_PRISMA_URL ||
   process.env.POSTGRES_URL_NON_POOLING ||
-  process.env.DATABASE_URL;
+  process.env.DATABASE_URL ||
+  process.env.NEON_DATABASE_URL ||
+  process.env.NEON_POSTGRES_URL;
 
 if (!process.env.POSTGRES_URL && connectionString) {
   process.env.POSTGRES_URL = connectionString;
@@ -34,11 +37,16 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Ungültiger Request-Body' });
     }
 
-    const { name, data } = payload;
+    const { name, project, data } = payload;
     if (!name || typeof name !== 'string' || !name.trim()) {
       return res.status(400).json({ error: 'Projektname fehlt' });
     }
     const trimmedName = name.trim();
+
+    const projectData = project ?? data;
+    if (!projectData || typeof projectData !== 'object') {
+      return res.status(400).json({ error: 'Projektdaten fehlen' });
+    }
 
     await sql`
       CREATE TABLE IF NOT EXISTS shotlist_projects (
@@ -60,15 +68,27 @@ export default async function handler(req, res) {
       ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
     `;
 
-    await sql`
+    const result = await sql`
       INSERT INTO shotlist_projects (name, data)
-      VALUES (${trimmedName}, ${JSON.stringify(data ?? {})}::jsonb)
+      VALUES (${trimmedName}, ${JSON.stringify(projectData ?? {})}::jsonb)
       ON CONFLICT (name) DO UPDATE
       SET data = EXCLUDED.data,
-          updated_at = NOW();
+          updated_at = NOW()
+      RETURNING name, data, updated_at;
     `;
 
-    return res.status(200).json({ ok: true });
+    const saved = result?.rows?.[0] ?? null;
+
+    return res.status(200).json({
+      ok: true,
+      project: saved
+        ? {
+            name: saved.name,
+            updatedAt: saved.updated_at,
+            data: saved.data,
+          }
+        : null,
+    });
   } catch (err) {
     console.error('Fehler beim Speichern des Projekts:', err);
     return res

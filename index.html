@@ -6128,23 +6128,17 @@ function clearAllData() {
 
     populatePrintReferences();
 
-    setAppState(createEmptyAppState());
-    setCurrentProjectId('');
-    setCurrentVersionId('');
-    clearLocalAppState();
-
     columnSettings = getDefaultColumnSettings();
     applyColumnSettings(columnSettings, false);
-
-    updateProjectSelect();
-    updateVersionSelect();
 
     refreshPreviewValues();
     calculateTime();
 
     recordCurrentSnapshot();
+    updateProjectSelect();
+    updateVersionSelect();
 
-    showNotification('Alle Inhalte gelöscht.');
+    showNotification('Aktive Version geleert.');
 }
 
 function openImageOverlay(img) {

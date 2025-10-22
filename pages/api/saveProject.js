@@ -35,25 +35,37 @@ export default async function handler(req, res) {
     }
 
     const { name, data } = payload;
-    if (!name) {
+    if (!name || typeof name !== 'string' || !name.trim()) {
       return res.status(400).json({ error: 'Projektname fehlt' });
     }
+    const trimmedName = name.trim();
 
     await sql`
       CREATE TABLE IF NOT EXISTS shotlist_projects (
         id SERIAL PRIMARY KEY,
-        name TEXT UNIQUE,
-        data JSONB,
-        created_at TIMESTAMP DEFAULT NOW()
+        name TEXT UNIQUE NOT NULL,
+        data JSONB NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `;
 
     await sql`
+      ALTER TABLE shotlist_projects
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+    `;
+
+    await sql`
+      ALTER TABLE shotlist_projects
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+    `;
+
+    await sql`
       INSERT INTO shotlist_projects (name, data)
-      VALUES (${name}, ${JSON.stringify(data ?? {})})
+      VALUES (${trimmedName}, ${JSON.stringify(data ?? {})}::jsonb)
       ON CONFLICT (name) DO UPDATE
       SET data = EXCLUDED.data,
-          created_at = NOW();
+          updated_at = NOW();
     `;
 
     return res.status(200).json({ ok: true });

@@ -96,3 +96,11 @@ export default async function handler(req, res) {
       .json({ error: err instanceof Error ? err.message : String(err) });
   }
 }
+
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '25mb',
+    },
+  },
+};

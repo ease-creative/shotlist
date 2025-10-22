@@ -2903,17 +2903,18 @@ async function ladenDaten(options = {}) {
             method: 'GET',
             cache: 'no-store'
         });
+        const parsed = await parseResponsePayload(response);
         if (!response.ok) {
-            const message = `HTTP ${response.status}`;
+            const message = extractErrorMessage(parsed, `HTTP ${response.status}`);
             throw new Error(message);
         }
-        let payload = null;
-        try {
-            payload = await response.json();
-        } catch (err) {
-            throw new Error('Antwort des Servers konnte nicht gelesen werden');
+        if (parsed.parseError) {
+            const snippet = parsed.raw && parsed.raw.trim().length ? parsed.raw.trim().slice(0, 200) : '';
+            const message = snippet ? `Serverantwort ungültig: ${snippet}` : 'Serverantwort ungültig';
+            throw new Error(message);
         }
-        const projects = Array.isArray(payload && payload.projects) ? payload.projects : [];
+        const payload = parsed.data || {};
+        const projects = Array.isArray(payload.projects) ? payload.projects : [];
         const normalized = projects.map(normalizeServerProjectEntry);
         setProjects(normalized);
         if (!normalized.length) {
@@ -3030,17 +3031,20 @@ async function saveProject() {
                 project: projectPayload
             })
         });
-        let result = null;
-        try {
-            result = await response.json();
-        } catch (parseErr) {
-            throw new Error('Antwort des Servers konnte nicht gelesen werden');
-        }
+        const parsed = await parseResponsePayload(response);
         if (!response.ok) {
-            const message = result && result.error ? result.error : 'Unbekannter Serverfehler';
+            const message = extractErrorMessage(parsed, `HTTP ${response.status}`);
             throw new Error(message);
         }
-        const savedProject = result && result.project ? normalizeServerProjectEntry(result.project) : normalizeServerProjectEntry({ name, project: projectPayload });
+        if (parsed.parseError) {
+            const snippet = parsed.raw && parsed.raw.trim().length ? parsed.raw.trim().slice(0, 200) : '';
+            const message = snippet ? `Serverantwort ungültig: ${snippet}` : 'Serverantwort ungültig';
+            throw new Error(message);
+        }
+        const result = parsed.data || {};
+        const savedProject = result && result.project
+            ? normalizeServerProjectEntry(result.project)
+            : normalizeServerProjectEntry({ name, project: projectPayload });
         const idx = appState.projects.findIndex(p => p && p.id === savedProject.id);
         if (idx >= 0) {
             appState.projects[idx] = savedProject;
@@ -3121,12 +3125,14 @@ async function deleteCurrentProject() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: removedProject.name })
             });
+            const parsed = await parseResponsePayload(response);
             if (!response.ok) {
-                let payload = null;
-                try {
-                    payload = await response.json();
-                } catch (err) {}
-                const message = payload && payload.error ? payload.error : 'Unbekannter Serverfehler';
+                const message = extractErrorMessage(parsed, `HTTP ${response.status}`);
+                throw new Error(message);
+            }
+            if (parsed.parseError) {
+                const snippet = parsed.raw && parsed.raw.trim().length ? parsed.raw.trim().slice(0, 200) : '';
+                const message = snippet ? `Serverantwort ungültig: ${snippet}` : 'Serverantwort ungültig';
                 throw new Error(message);
             }
         } catch (err) {
@@ -3136,8 +3142,8 @@ async function deleteCurrentProject() {
     }
 
     if (serverError) {
-        console.error('❌ Fehler beim Server-Löschen:', serverError);
-        showNotification('Projekt konnte auf dem Server nicht gelöscht werden', true);
+        const message = serverError && serverError.message ? serverError.message : 'Unbekannter Fehler';
+        showNotification(`Server-Löschen fehlgeschlagen: ${message}`, true);
         await ladenDaten({ silent: true, preserveCurrent: false }).catch(err => {
             console.debug('Serverdaten konnten nach Löschfehler nicht aktualisiert werden:', err);
         });
@@ -3171,15 +3177,17 @@ async function loadSelectedProject() {
             method: 'GET',
             cache: 'no-store'
         });
-        try {
-            payload = await response.json();
-        } catch (err) {
-            throw new Error('Antwort des Servers konnte nicht gelesen werden');
-        }
+        const parsed = await parseResponsePayload(response);
         if (!response.ok) {
-            const message = payload && payload.error ? payload.error : `HTTP ${response.status}`;
+            const message = extractErrorMessage(parsed, `HTTP ${response.status}`);
             throw new Error(message);
         }
+        if (parsed.parseError) {
+            const snippet = parsed.raw && parsed.raw.trim().length ? parsed.raw.trim().slice(0, 200) : '';
+            const message = snippet ? `Serverantwort ungültig: ${snippet}` : 'Serverantwort ungültig';
+            throw new Error(message);
+        }
+        payload = parsed.data;
     } catch (err) {
         console.error('❌ Projekt konnte nicht geladen werden:', err);
         const message = err && err.message ? err.message : 'Unbekannter Fehler';
@@ -3349,6 +3357,35 @@ const SCENE_SUMMARY_MODES = ['scene', 'plan', 'location'];
 const COLUMN_SETTINGS_KEY = 'shotlist-column-settings';
 const SERVER_STATUS_ENDPOINT = '/api/ping';
 const SERVER_PROJECTS_ENDPOINT = '/api/projects';
+
+async function parseResponsePayload(response) {
+    const raw = await response.text();
+    let data = null;
+    let parseError = null;
+    if (raw && raw.trim().length) {
+        try {
+            data = JSON.parse(raw);
+        } catch (err) {
+            parseError = err;
+        }
+    }
+    return { response, raw, data, parseError };
+}
+
+function extractErrorMessage(parsed, fallbackMessage) {
+    if (!parsed) return fallbackMessage || 'Unbekannter Fehler';
+    const { data, raw, response } = parsed;
+    if (data && typeof data.error === 'string' && data.error.trim()) {
+        return data.error.trim();
+    }
+    if (raw && raw.trim().length) {
+        return raw.trim();
+    }
+    if (response) {
+        return fallbackMessage || `HTTP ${response.status}`;
+    }
+    return fallbackMessage || 'Unbekannter Fehler';
+}
 const SERVER_STATUS_INTERVAL = 15000;
 const SERVER_STATUS_TEXT = {
     online: 'Online',

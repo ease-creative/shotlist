@@ -2951,6 +2951,18 @@ async function saveProject() {
     try {
         await persistAppState({ silent: true });
         showNotification('Projekt lokal gespeichert ✓');
+
+        fetch("/api/saveProject", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                name: document.getElementById("clientName").value || "Unbenannt",
+                data: appState
+            })
+        })
+        .then(res => res.json())
+        .then(data => console.log("Serverantwort:", data))
+        .catch(err => console.error("Fehler beim Speichern:", err));
     } catch (err) {
         console.error('Projekt konnte nicht lokal gesichert werden:', err);
         showNotification('Projekt konnte nicht lokal gespeichert werden', true);

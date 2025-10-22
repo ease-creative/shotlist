@@ -1,0 +1,7 @@
+# Node modules und lokale Dateien ignorieren
+node_modules
+.next
+npm-debug.log*
+.DS_Store
+.env.local
+out
